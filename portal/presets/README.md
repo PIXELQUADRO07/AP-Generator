@@ -1,0 +1,1 @@
+List of all html captive portal presets

