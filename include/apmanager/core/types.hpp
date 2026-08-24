@@ -2,6 +2,9 @@
 
 #include <string>
 #include <vector>
+#include <iostream>
+
+using namespace std;
 
 namespace apm {
 
@@ -9,29 +12,36 @@ namespace apm {
         Open,
         WPA2,
         WPA2WPA3,
-        WPA3
+        WPA3,
     };
 
-    struct WifiInterface {
-        std::string name;
-        std::string mac;
 
+    //discovered interface on system
+
+    struct WifiInterface {
+        string name;
+        string mac;
+
+        bool up = false;
         bool connected = false;
-        bool suports_ap = false;
+
+        bool supports_ap = false;
         bool supports_wpa3 = false;
     };
 
+    //Acces point configuration to start /create
+    
     struct AccesPointConfig {
-        std::string interface;
-        std::string ssid;
-        std::string bssid;
+        string interface;
+        string ssid;
+        string bssid; //empty = auto.
 
         int channel = 0;
-
+        
         SecurityMode security = SecurityMode::Open;
-        std::string password;
+        string password;
 
-        bool internet_sharing = false;
-        bool captive_portal = false; 
+        bool Internet_sharing = false;
+        bool captive_portal = false;
     };
 }
