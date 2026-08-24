@@ -1,47 +1,44 @@
-#pragma once 
+#pragma once
 
 #include <string>
 #include <vector>
-#include <iostream>
-
-using namespace std;
 
 namespace apm {
 
-    enum class SecurityMode {
-        Open,
-        WPA2,
-        WPA2WPA3,
-        WPA3,
-    };
+enum class SecurityMode {
+    Open,
+    WPA2,
+    WPA2WPA3,
+    WPA3
+};
 
+struct WifiInterface {
+    std::string name;
+    std::string mac;
 
-    //discovered interface on system
+    bool up = false;
+    bool connected = false;
 
-    struct WifiInterface {
-        string name;
-        string mac;
+    bool supports_ap = false;
+    bool supports_wpa2 = false;
+    bool supports_wpa3 = false;
+    bool supports_concurrent_ap_sta = false;
 
-        bool up = false;
-        bool connected = false;
+    std::vector<int> channels;
+};
 
-        bool supports_ap = false;
-        bool supports_wpa3 = false;
-    };
+struct AccessPointConfig {
+    std::string interface;
+    std::string ssid;
+    std::string bssid;
 
-    //Acces point configuration to start /create
-    
-    struct AccesPointConfig {
-        string interface;
-        string ssid;
-        string bssid; //empty = auto.
+    int channel = 0;
 
-        int channel = 0;
-        
-        SecurityMode security = SecurityMode::Open;
-        string password;
+    SecurityMode security = SecurityMode::Open;
+    std::string password;
 
-        bool Internet_sharing = false;
-        bool captive_portal = false;
-    };
+    bool internet_sharing = false;
+    bool captive_portal = false;
+};
+
 }
