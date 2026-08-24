@@ -1,29 +1,36 @@
+#pragma once 
+
 #include <vector>
 #include <string>
+#include <iostream>
 
+using namespace std;
 
-class WifiBackend {
-public:
-    virtual ~WifiBackend() = default;
+#include "apmanager/core/types.hpp"
 
-    virtual std::vector<WifiInterface>
-    discover_interfaces() = 0;
+namespace apm {
 
-    virtual bool create_ap(
-        const AccessPointConfig& config
-    ) = 0;
+    //abstract interface 
 
-    virtual bool stop_ap() = 0;
-};
+    class WifiBackend {
+        public:
+        virtual ~WifiBackend() = default; 
 
-class LinuxWifiBackend : public WifiBackend {
-    public:
-       std::vector<WifiInterface>
-       discover_interfaces() override;
+        virtual vector<WifiInterface>
+        discover_interfaces() = 0;
 
-       bool create_ap(
-        const AccessPointConfig& config 
-       ) override;
+        virtual bool create_ap() = 0;
+    };
 
-       bool stop_ap() override;
-};
+    class LinuxWifiBackend : public WifiBackend {
+        public:
+        vector<WifiInterface>
+        discover_interfaces() override;
+
+        bool create_ap(
+            const AccesPointConfig& config 
+        ) override;
+
+        bool stop_ap() override; 
+    };
+}
