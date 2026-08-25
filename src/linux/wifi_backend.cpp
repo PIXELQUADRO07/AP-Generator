@@ -1,6 +1,9 @@
 #include "apmanager/core/wifi_backend.hpp"
 #include "apmanager/core/preset_manager.hpp"
 #include "wifi_capabilities.hpp"
+#include "hostapd.hpp"
+#include "network.hpp"
+#include "portal/captive_portal.hpp"
 
 #include <dirent.h>
 #include <sys/types.h>
@@ -18,6 +21,9 @@ namespace apm {
 
 struct LinuxWifiBackend::Impl {
     std::string state_file = "config/run/ap-state.json";
+    linux_backend::HostapdManager hostapd;
+    linux_backend::LinuxNetworkService network;
+    portal::CaptivePortal portal;
 };
 
 namespace {
@@ -88,6 +94,19 @@ bool LinuxWifiBackend::start_ap(const AccessPointConfig& config) {
     std::error_code ec;
     fs::create_directories("config/run", ec);
 
+    // 1. Setup IP, routing, DHCP/DNS and NAT
+    impl_->network.setup_ap_network(config);
+
+    // 2. Start Hostapd
+    std::string hostapd_err;
+    impl_->hostapd.start(config, &hostapd_err);
+
+    // 3. Start Captive Portal if configured
+    if (config.captive_portal) {
+        impl_->portal.start(config.portal_path, 8080);
+    }
+
+    // 4. Record state file
     std::ofstream out(impl_->state_file);
     if (!out.is_open()) {
         return false;
@@ -111,6 +130,18 @@ bool LinuxWifiBackend::stop_ap() {
         return false;
     }
 
+    ApStatus cur_status = get_status();
+
+    // 1. Stop Captive Portal
+    impl_->portal.stop();
+
+    // 2. Stop Hostapd
+    impl_->hostapd.stop();
+
+    // 3. Teardown network & firewall
+    impl_->network.teardown_ap_network(cur_status.config);
+
+    // 4. Remove state file
     std::error_code ec;
     fs::remove(impl_->state_file, ec);
     return true;
@@ -155,6 +186,8 @@ ApStatus LinuxWifiBackend::get_status() const {
     }
 
     PresetManager::deserialize_config_json(content, status.config);
+    status.connected_clients = impl_->network.get_clients();
+
     return status;
 }
 
