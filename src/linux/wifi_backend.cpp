@@ -51,6 +51,7 @@ bool is_wireless_interface(const std::string& if_name) {
 LinuxWifiBackend::LinuxWifiBackend() : impl_(std::make_unique<Impl>()) {
     std::error_code ec;
     fs::create_directories("config/run", ec);
+    impl_->state_file = fs::absolute("config/run/ap-state.json").string();
 }
 
 LinuxWifiBackend::~LinuxWifiBackend() = default;

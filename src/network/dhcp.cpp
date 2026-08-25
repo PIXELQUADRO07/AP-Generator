@@ -35,8 +35,9 @@ bool DhcpServer::start(const DhcpConfig& config, const std::string& lease_file) 
     std::error_code ec;
     fs::create_directories("config/run", ec);
 
-    config_path_ = "config/run/dnsmasq.conf";
-    std::string pid_file = "config/run/dnsmasq.pid";
+    config_path_ = fs::absolute("config/run/dnsmasq.conf").string();
+    std::string pid_file = fs::absolute("config/run/dnsmasq.pid").string();
+    std::string abs_lease_file = fs::absolute(lease_file).string();
 
     // Write dnsmasq.conf
     std::ofstream out(config_path_);
@@ -57,7 +58,7 @@ bool DhcpServer::start(const DhcpConfig& config, const std::string& lease_file) 
         out << "dhcp-option=114,http://" << config.gateway_ip << ":" << config.portal_port << "/\n";
         out << "address=/#/" << config.gateway_ip << "\n";
     }
-    out << "dhcp-leasefile=" << lease_file << "\n";
+    out << "dhcp-leasefile=" << abs_lease_file << "\n";
     out << "dhcp-authoritative\n";
     out << "no-poll\n";
     out << "no-resolv\n";
@@ -72,7 +73,7 @@ bool DhcpServer::start(const DhcpConfig& config, const std::string& lease_file) 
         usleep(50000);
     }
 
-    // Launch dnsmasq
+    // Launch dnsmasq using absolute paths
     std::string cmd = "dnsmasq --conf-file=" + config_path_ + " --pid-file=" + pid_file;
     int res = std::system(cmd.c_str());
     if (res == 0) {
@@ -84,7 +85,7 @@ bool DhcpServer::start(const DhcpConfig& config, const std::string& lease_file) 
 }
 
 bool DhcpServer::stop() {
-    std::string pid_file = "config/run/dnsmasq.pid";
+    std::string pid_file = fs::absolute("config/run/dnsmasq.pid").string();
     int pid = (pid_ > 0) ? pid_ : read_pid_from_file(pid_file);
 
     if (pid > 0 && kill(pid, 0) == 0) {
@@ -102,14 +103,15 @@ bool DhcpServer::stop() {
 }
 
 bool DhcpServer::is_running() const {
-    std::string pid_file = "config/run/dnsmasq.pid";
+    std::string pid_file = fs::absolute("config/run/dnsmasq.pid").string();
     int pid = (pid_ > 0) ? pid_ : read_pid_from_file(pid_file);
     return pid > 0 && kill(pid, 0) == 0;
 }
 
 std::vector<DhcpLease> DhcpServer::get_leases(const std::string& lease_file) const {
     std::vector<DhcpLease> leases;
-    std::ifstream in(lease_file);
+    std::string abs_lease_file = fs::absolute(lease_file).string();
+    std::ifstream in(abs_lease_file);
     if (!in.is_open()) {
         return leases;
     }

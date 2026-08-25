@@ -125,6 +125,9 @@ bool HostapdManager::start(const AccessPointConfig& config, std::string* error_m
     std::error_code ec;
     fs::create_directories("config/run", ec);
 
+    config_path_ = fs::absolute("config/run/hostapd.conf").string();
+    pid_file_ = fs::absolute("config/run/hostapd.pid").string();
+
     // Save hostapd.conf
     std::ofstream out(config_path_);
     if (!out.is_open()) {

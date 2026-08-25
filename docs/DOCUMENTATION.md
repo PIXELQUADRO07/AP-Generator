@@ -161,7 +161,39 @@ Hardware      hostapd       dnsmasq       iptables /     HttpServer
 
 ---
 
-### `start <preset>`
+### `set [chiave] [valore]` / `show`
+* **Cosa fa**: Consente di visualizzare o modificare manualmente ogni singola variabile di configurazione dell'Access Point direttamente in memoria (buffer attivo) prima di avviarlo o salvarlo.
+* **Variabili modificabili**:
+  * `set interface <iface>`: Imposta l'interfaccia wireless (es. `wlp0s20f0u2`, `wlan0`).
+  * `set ssid <nome>`: Imposta l'SSID della rete.
+  * `set channel <1-165>`: Imposta il canale radio.
+  * `set security <open|wpa2|wpa3>`: Imposta la crittografia.
+  * `set password <pass>`: Imposta la password Wi-Fi.
+  * `set sharing <on|off>`: Abilita/disabilita la condivisione Internet NAT.
+  * `set upstream <iface>`: Imposta l'interfaccia con connessione Internet (es. `wlp0s20f3`, `eth0`).
+  * `set portal <on|off>`: Abilita/disabilita il Captive Portal.
+  * `set template <nome>`: Imposta il template Captive Portal (es. `Google_Modern`, `Starlink`).
+  * `set gateway <ip>`: Imposta l'indirizzo IP del gateway (default `192.168.50.1`).
+  * `set netmask <maschera>`: Imposta la subnet mask.
+  * `set dhcp-start <ip>` / `set dhcp-end <ip>`: Imposta il range di indirizzi DHCP.
+  * `set bssid <mac>`: Imposta un BSSID / MAC personalizzato.
+  * `set show` (o `show` o `set` da solo): Mostra il riepilogo della configurazione attiva in memoria.
+  * `set reset`: Ripristina i valori predefiniti.
+* **Esempio**:
+  ```bash
+  ap-generator: set interface wlp0s20f0u2
+  ap-generator: set ssid MiaReteHotspot
+  ap-generator: set security wpa2
+  ap-generator: set password Password1234
+  ap-generator: set sharing on
+  ap-generator: set upstream wlp0s20f3
+  ap-generator: show
+  ap-generator: start
+  ```
+
+---
+
+### `start [preset]`
 * **Cosa fa**: Avvia l'Access Point utilizzando i parametri definiti nel preset indicato.
 * **Operazioni eseguite**:
   1. Valida la configurazione.

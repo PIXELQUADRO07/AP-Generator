@@ -143,6 +143,29 @@ void print_capabilities(const apm::WifiInterface& iface) {
     std::cout << "\n";
 }
 
+void print_working_config(const apm::AccessPointConfig& cfg) {
+    std::cout << "======================================================\n";
+    std::cout << "        Configurazione Attiva in Memoria (Buffer)     \n";
+    std::cout << "======================================================\n";
+    std::cout << "  Interface:          " << (cfg.interface.empty() ? "(non impostata)" : cfg.interface) << "\n";
+    std::cout << "  SSID:               " << (cfg.ssid.empty() ? "(non impostato)" : cfg.ssid) << "\n";
+    std::cout << "  Channel:            " << cfg.channel << "\n";
+    std::cout << "  Security:           " << apm::security_mode_to_string(cfg.security) << "\n";
+    if (cfg.security != apm::SecurityMode::Open) {
+        std::cout << "  Password:           " << (cfg.password.empty() ? "(non impostata)" : cfg.password) << "\n";
+    }
+    std::cout << "  Internet Sharing:   " << (cfg.internet_sharing ? ("SI (Upstream: " + (cfg.upstream_interface.empty() ? "auto" : cfg.upstream_interface) + ")") : "NO") << "\n";
+    std::cout << "  Captive Portal:     " << (cfg.captive_portal ? ("SI (Template: " + (cfg.portal_path.empty() ? "default" : cfg.portal_path) + ")") : "NO") << "\n";
+    std::cout << "  Gateway IP:         " << cfg.gateway_ip << " (" << cfg.netmask << ")\n";
+    std::cout << "  DHCP Range:         " << cfg.dhcp_range_start << " - " << cfg.dhcp_range_end << "\n";
+    if (!cfg.bssid.empty()) {
+        std::cout << "  BSSID:              " << cfg.bssid << "\n";
+    }
+    std::cout << "======================================================\n";
+    std::cout << "Modifica i parametri con: set <chiave> <valore>\n";
+    std::cout << "Avvia subito con:        start\n\n";
+}
+
 void print_help() {
     std::cout << "=========================================================================\n";
     std::cout << "                  " << I18n::tr("help_title") << "\n";
@@ -161,6 +184,8 @@ void print_help() {
 
     std::cout << I18n::tr("help_cat_ap") << "\n";
     std::cout << "  " << I18n::tr("help_wizard") << "\n";
+    std::cout << "  " << I18n::tr("help_set") << "\n";
+    std::cout << "  " << I18n::tr("help_show") << "\n";
     std::cout << "  " << I18n::tr("help_start") << "\n";
     std::cout << "  " << I18n::tr("help_stop") << "\n";
     std::cout << "  " << I18n::tr("help_status") << "\n";
@@ -179,7 +204,7 @@ void print_help() {
     std::cout << "  " << I18n::tr("help_exit") << "\n\n";
 }
 
-void run_wizard(apm::ApManager& ap_mgr, apm::PresetManager& preset_mgr) {
+void run_wizard(apm::ApManager& ap_mgr, apm::PresetManager& preset_mgr, apm::AccessPointConfig& working_cfg) {
     std::cout << "\n" << I18n::tr("wizard_title") << "\n";
     std::cout << I18n::tr("wizard_welcome") << "\n\n";
 
@@ -303,6 +328,8 @@ void run_wizard(apm::ApManager& ap_mgr, apm::PresetManager& preset_mgr) {
         return;
     }
 
+    working_cfg = cfg;
+
     // Save as preset?
     std::cout << "\n" << I18n::tr("wizard_step_save") << " ";
     std::string preset_name;
@@ -334,7 +361,8 @@ void run_wizard(apm::ApManager& ap_mgr, apm::PresetManager& preset_mgr) {
 bool execute_command_tokens(const std::vector<std::string>& tokens,
                             apm::ApManager& ap_mgr,
                             apm::PresetManager& preset_mgr,
-                            apm::portal::CaptivePortal& portal_mgr) {
+                            apm::portal::CaptivePortal& portal_mgr,
+                            apm::AccessPointConfig& working_cfg) {
     if (tokens.empty()) return true;
 
     const std::string& command = tokens[0];
@@ -345,7 +373,9 @@ bool execute_command_tokens(const std::vector<std::string>& tokens,
     }
 
     if (command == "clear" || command == "cls") {
-        std::cout << "\033[2J\033[H";
+        std::cout << "\033[3J\033[H\033[2J";
+        std::cout.flush();
+        (void)std::system("clear");
         apgen::ui::print_banner();
         return true;
     }
@@ -381,7 +411,103 @@ bool execute_command_tokens(const std::vector<std::string>& tokens,
     }
 
     if (command == "wizard") {
-        run_wizard(ap_mgr, preset_mgr);
+        run_wizard(ap_mgr, preset_mgr, working_cfg);
+        return true;
+    }
+
+    // SET command for manually modifying configuration variables
+    if (command == "set" || command == "show") {
+        if (command == "show" || tokens.size() == 1 || (tokens.size() == 2 && tokens[1] == "show")) {
+            print_working_config(working_cfg);
+            return true;
+        }
+
+        if (tokens.size() >= 2 && tokens[1] == "reset") {
+            working_cfg = apm::AccessPointConfig();
+            working_cfg.ssid = "AP-Hotspot";
+            working_cfg.channel = 6;
+            std::cout << "Configurazione reimpostata ai valori predefiniti.\n\n";
+            return true;
+        }
+
+        if (tokens.size() < 3) {
+            std::cout << "Uso del comando 'set':\n";
+            std::cout << "  set interface <wlan0|wlp...>      - Imposta l'interfaccia wireless\n";
+            std::cout << "  set ssid <Nome_Rete>              - Imposta il nome della rete\n";
+            std::cout << "  set channel <1-165>               - Imposta il canale Wi-Fi\n";
+            std::cout << "  set security <open|wpa2|wpa3>     - Imposta la sicurezza\n";
+            std::cout << "  set password <passphrase>         - Imposta la password Wi-Fi\n";
+            std::cout << "  set sharing <on|off>              - Abilita/disabilita condivisione Internet\n";
+            std::cout << "  set upstream <eth0|wlan0>         - Imposta interfaccia con connessione Internet\n";
+            std::cout << "  set portal <on|off>               - Abilita/disabilita Captive Portal\n";
+            std::cout << "  set template <Google_Modern|...>  - Imposta il template Captive Portal\n";
+            std::cout << "  set gateway <192.168.50.1>        - Imposta IP del Gateway\n";
+            std::cout << "  set netmask <255.255.255.0>       - Imposta la maschera di rete\n";
+            std::cout << "  set dhcp-start <192.168.50.10>    - Inizio range DHCP\n";
+            std::cout << "  set dhcp-end <192.168.50.250>     - Fine range DHCP\n";
+            std::cout << "  set bssid <XX:XX:XX:XX:XX:XX>     - Imposta BSSID (MAC custom)\n";
+            std::cout << "  set show                          - Mostra la configurazione corrente\n";
+            std::cout << "  set reset                         - Ripristina valori default\n";
+            return true;
+        }
+
+        std::string key = tokens[1];
+        std::string val = tokens[2];
+        std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+
+        if (key == "interface" || key == "iface" || key == "dev") {
+            working_cfg.interface = val;
+            std::cout << "✓ Interface impostata su: " << val << "\n";
+        } else if (key == "ssid" || key == "name") {
+            working_cfg.ssid = val;
+            std::cout << "✓ SSID impostato su: " << val << "\n";
+        } else if (key == "channel" || key == "chan" || key == "ch") {
+            try {
+                working_cfg.channel = std::stoi(val);
+                std::cout << "✓ Canale impostato su: " << working_cfg.channel << "\n";
+            } catch (...) {
+                std::cerr << "Errore: numero di canale non valido.\n";
+            }
+        } else if (key == "security" || key == "sec" || key == "mode") {
+            working_cfg.security = apm::security_mode_from_string(val);
+            std::cout << "✓ Sicurezza impostata su: " << apm::security_mode_to_string(working_cfg.security) << "\n";
+        } else if (key == "password" || key == "pass" || key == "key") {
+            working_cfg.password = val;
+            std::cout << "✓ Password impostata.\n";
+        } else if (key == "sharing" || key == "nat" || key == "share") {
+            std::string lval = val;
+            std::transform(lval.begin(), lval.end(), lval.begin(), ::tolower);
+            working_cfg.internet_sharing = (lval == "1" || lval == "true" || lval == "on" || lval == "si" || lval == "yes" || lval == "y");
+            std::cout << "✓ Condivisione Internet: " << (working_cfg.internet_sharing ? "ABILITATA" : "DISABILITATA") << "\n";
+        } else if (key == "upstream" || key == "wan" || key == "src") {
+            working_cfg.upstream_interface = val;
+            std::cout << "✓ Interfaccia upstream impostata su: " << val << "\n";
+        } else if (key == "portal" || key == "captive") {
+            std::string lval = val;
+            std::transform(lval.begin(), lval.end(), lval.begin(), ::tolower);
+            working_cfg.captive_portal = (lval == "1" || lval == "true" || lval == "on" || lval == "si" || lval == "yes" || lval == "y");
+            std::cout << "✓ Captive Portal: " << (working_cfg.captive_portal ? "ABILITATO" : "DISABILITATO") << "\n";
+        } else if (key == "template" || key == "portal-path" || key == "portal_path" || key == "tpl") {
+            working_cfg.portal_path = val;
+            std::cout << "✓ Template portal impostato su: " << val << "\n";
+        } else if (key == "gateway" || key == "gw" || key == "ip") {
+            working_cfg.gateway_ip = val;
+            std::cout << "✓ Gateway IP impostato su: " << val << "\n";
+        } else if (key == "netmask" || key == "mask") {
+            working_cfg.netmask = val;
+            std::cout << "✓ Netmask impostata su: " << val << "\n";
+        } else if (key == "dhcp-start" || key == "dhcp_start" || key == "start_ip") {
+            working_cfg.dhcp_range_start = val;
+            std::cout << "✓ DHCP Range Start impostato su: " << val << "\n";
+        } else if (key == "dhcp-end" || key == "dhcp_end" || key == "end_ip") {
+            working_cfg.dhcp_range_end = val;
+            std::cout << "✓ DHCP Range End impostato su: " << val << "\n";
+        } else if (key == "bssid" || key == "mac") {
+            working_cfg.bssid = val;
+            std::cout << "✓ BSSID impostato su: " << val << "\n";
+        } else {
+            std::cerr << "Chiave sconosciuta: '" << key << "'. Digita 'set' per la lista dei parametri.\n";
+        }
         return true;
     }
 
@@ -495,12 +621,12 @@ bool execute_command_tokens(const std::vector<std::string>& tokens,
         }
 
         if (subcmd == "save") {
-            if (tokens.size() < 3) {
+            std::string name = (tokens.size() >= 3) ? tokens[2] : (working_cfg.name.empty() ? working_cfg.ssid : working_cfg.name);
+            if (name.empty()) {
                 std::cerr << "Specificare il nome del preset: preset save <nome> [opzioni]\n";
                 return true;
             }
-            std::string name = tokens[2];
-            apm::AccessPointConfig cfg;
+            apm::AccessPointConfig cfg = working_cfg;
             cfg.name = name;
 
             for (size_t i = 3; i < tokens.size(); ++i) {
@@ -524,6 +650,7 @@ bool execute_command_tokens(const std::vector<std::string>& tokens,
                 std::cerr << "Errore salvataggio: " << err << "\n";
                 return true;
             }
+            working_cfg = cfg;
             std::cout << I18n::tr("preset_saved") << " " << name << " (" << preset_mgr.get_presets_directory() << "/" << name << ".json)\n";
             return true;
         }
@@ -533,15 +660,13 @@ bool execute_command_tokens(const std::vector<std::string>& tokens,
     }
 
     if (command == "validate") {
-        if (tokens.size() < 2) {
-            std::cerr << "Specificare il nome del preset da validare.\n";
-            return true;
-        }
-        apm::AccessPointConfig cfg;
-        std::string err;
-        if (!preset_mgr.load_preset(tokens[1], cfg, &err)) {
-            std::cerr << I18n::tr("preset_load_fail") << " " << err << "\n";
-            return true;
+        apm::AccessPointConfig cfg = working_cfg;
+        if (tokens.size() >= 2) {
+            std::string err;
+            if (!preset_mgr.load_preset(tokens[1], cfg, &err)) {
+                std::cerr << I18n::tr("preset_load_fail") << " " << err << "\n";
+                return true;
+            }
         }
         auto res = ap_mgr.validate(cfg);
         if (res) {
@@ -616,7 +741,7 @@ bool execute_command_tokens(const std::vector<std::string>& tokens,
         }
 #if defined(__linux__)
         auto status = ap_mgr.get_status();
-        std::string iface = status.running ? status.config.interface : "";
+        std::string iface = status.running ? status.config.interface : working_cfg.interface;
         apm::linux_backend::ClientMonitor cm(iface);
         std::string err;
         if (cm.kick_client(tokens[1], &err)) {
@@ -672,16 +797,32 @@ bool execute_command_tokens(const std::vector<std::string>& tokens,
     }
 
     if (command == "start") {
-        if (tokens.size() < 2) {
-            std::cerr << I18n::tr("ap_specify_preset") << "\n";
-            return true;
-        }
         apm::AccessPointConfig cfg;
-        std::string err;
-        if (!preset_mgr.load_preset(tokens[1], cfg, &err)) {
-            std::cerr << I18n::tr("preset_load_fail") << " " << err << "\n";
-            return true;
+        if (tokens.size() >= 2) {
+            std::string preset_name = tokens[1];
+            std::string err;
+            if (!preset_mgr.load_preset(preset_name, cfg, &err)) {
+                std::cerr << I18n::tr("preset_load_fail") << " " << err << "\n";
+                return true;
+            }
+            working_cfg = cfg;
+        } else {
+            // Start using active in-memory working config
+            cfg = working_cfg;
+            if (cfg.interface.empty()) {
+                auto ifaces = ap_mgr.list_interfaces();
+                if (!ifaces.empty()) {
+                    cfg.interface = ifaces[0].name;
+                    working_cfg.interface = cfg.interface;
+                }
+            }
+            if (cfg.ssid.empty()) {
+                cfg.ssid = "AP-Hotspot";
+                working_cfg.ssid = cfg.ssid;
+            }
         }
+
+        std::string err;
         if (!ap_mgr.start(cfg, &err)) {
             std::cerr << I18n::tr("ap_start_fail") << " " << err << "\n";
             return true;
@@ -710,6 +851,17 @@ void start_interactive_shell(apm::ApManager& ap_mgr, apm::PresetManager& preset_
     std::cout << "  " << I18n::tr("lang_current") << " | Digita 'help' per i comandi | 'exit' per uscire\n";
     std::cout << "=========================================================================\n\n";
 
+    apm::AccessPointConfig working_cfg;
+    working_cfg.ssid = "AP-Hotspot";
+    working_cfg.channel = 6;
+    working_cfg.security = apm::SecurityMode::Open;
+
+    // Default to first detected interface if available
+    auto detected = ap_mgr.list_interfaces();
+    if (!detected.empty()) {
+        working_cfg.interface = detected[0].name;
+    }
+
     std::string line;
     while (true) {
         std::cout << "ap-generator: ";
@@ -723,7 +875,7 @@ void start_interactive_shell(apm::ApManager& ap_mgr, apm::PresetManager& preset_
         auto tokens = split_command_args(line);
         if (tokens.empty()) continue;
 
-        bool keep_running = execute_command_tokens(tokens, ap_mgr, preset_mgr, portal_mgr);
+        bool keep_running = execute_command_tokens(tokens, ap_mgr, preset_mgr, portal_mgr, working_cfg);
         if (!keep_running) {
             break;
         }
@@ -764,7 +916,14 @@ int main(int argc, char** argv) {
         return 0;
     }
 
+    apm::AccessPointConfig cli_working_cfg;
+    auto detected = ap_mgr.list_interfaces();
+    if (!detected.empty()) {
+        cli_working_cfg.interface = detected[0].name;
+    }
+    cli_working_cfg.ssid = "AP-Hotspot";
+
     // Execute one-shot CLI command
-    execute_command_tokens(tokens, ap_mgr, preset_mgr, portal_mgr);
+    execute_command_tokens(tokens, ap_mgr, preset_mgr, portal_mgr, cli_working_cfg);
     return 0;
 }
