@@ -10,4 +10,5 @@ compile_commands.json
 .vscode/
 .idea/
 config/run/
+config/settings.json
 run_tests

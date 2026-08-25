@@ -20,6 +20,8 @@
 #include "network/dhcp.hpp"
 #include "network/dns.hpp"
 #include "network/nat.hpp"
+#include "apmanager/core/i18n.hpp"
+#include "client_monitor.hpp"
 
 namespace {
 
@@ -166,8 +168,40 @@ int main() {
         std::cout << "PASSED\n";
     }
 
+    // 5. Test i18n Multi-language System
+    {
+        std::cout << "[TEST 5] Testing i18n Multi-language system... ";
+        auto& i18n = apm::I18n::instance();
+        i18n.set_language(apm::Language::IT);
+        assert(i18n.get_language() == apm::Language::IT);
+        assert(i18n.get("lang_switched") == "Lingua impostata su: Italiano");
+
+        i18n.set_language(apm::Language::EN);
+        assert(i18n.get_language() == apm::Language::EN);
+        assert(i18n.get("lang_switched") == "Language set to: English");
+
+        // Reset to IT
+        i18n.set_language(apm::Language::IT);
+        std::cout << "PASSED\n";
+    }
+
+    // 6. Test ClientMonitor Blacklist Management
+    {
+        std::cout << "[TEST 6] Testing ClientMonitor Blacklist logic... ";
+#if defined(__linux__)
+        apm::linux_backend::ClientMonitor cm("wlan0");
+        std::string test_mac = "aa:bb:cc:dd:ee:ff";
+        cm.blacklist_add(test_mac);
+        assert(cm.is_blacklisted(test_mac));
+        assert(cm.is_blacklisted("AA:BB:CC:DD:EE:FF")); // case-insensitive check
+        cm.blacklist_remove(test_mac);
+        assert(!cm.is_blacklisted(test_mac));
+#endif
+        std::cout << "PASSED\n";
+    }
+
     std::cout << "======================================================\n";
-    std::cout << "   ALL AP-GENERATOR INTEGRATION TESTS PASSED (4/4)    \n";
+    std::cout << "   ALL AP-GENERATOR INTEGRATION TESTS PASSED (6/6)    \n";
     std::cout << "======================================================\n";
     return 0;
 }

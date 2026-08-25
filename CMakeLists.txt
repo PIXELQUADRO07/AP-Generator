@@ -15,6 +15,8 @@ set(APGEN_SOURCES
     src/main.cpp
     src/core/ap_manager.cpp
     src/core/preset_manager.cpp
+    src/core/logger.cpp
+    src/core/i18n.cpp
     src/network/interface.cpp
     src/network/dhcp.cpp
     src/network/dns.cpp
@@ -31,6 +33,7 @@ if(UNIX AND NOT APPLE)
         src/linux/hostapd.cpp
         src/linux/network.cpp
         src/linux/firewall.cpp
+        src/linux/client_monitor.cpp
     )
 endif()
 
