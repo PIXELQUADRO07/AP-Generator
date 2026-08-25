@@ -1,0 +1,12 @@
+build/
+bin/
+*.o
+*.a
+*.so
+*.out
+ap-generator
+compile_commands.json
+.cache/
+.vscode/
+.idea/
+config/run/
