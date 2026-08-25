@@ -1,36 +1,40 @@
-#pragma once 
+#pragma once
 
 #include <vector>
 #include <string>
-#include <iostream>
-
-using namespace std;
+#include <memory>
 
 #include "apmanager/core/types.hpp"
 
 namespace apm {
 
-    //abstract interface 
+class WifiBackend {
+public:
+    virtual ~WifiBackend() = default;
 
-    class WifiBackend {
-        public:
-        virtual ~WifiBackend() = default; 
+    virtual std::vector<WifiInterface> discover_interfaces() = 0;
+    virtual WifiInterface get_interface_capabilities(const std::string& if_name) = 0;
+    virtual bool start_ap(const AccessPointConfig& config) = 0;
+    virtual bool stop_ap() = 0;
+    virtual bool is_ap_running() const = 0;
+    virtual ApStatus get_status() const = 0;
+};
 
-        virtual vector<WifiInterface>
-        discover_interfaces() = 0;
+class LinuxWifiBackend : public WifiBackend {
+public:
+    LinuxWifiBackend();
+    ~LinuxWifiBackend() override;
 
-        virtual bool create_ap() = 0;
-    };
+    std::vector<WifiInterface> discover_interfaces() override;
+    WifiInterface get_interface_capabilities(const std::string& if_name) override;
+    bool start_ap(const AccessPointConfig& config) override;
+    bool stop_ap() override;
+    bool is_ap_running() const override;
+    ApStatus get_status() const override;
 
-    class LinuxWifiBackend : public WifiBackend {
-        public:
-        vector<WifiInterface>
-        discover_interfaces() override;
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
 
-        bool create_ap(
-            const AccesPointConfig& config 
-        ) override;
-
-        bool stop_ap() override; 
-    };
-}
+} // namespace apm
