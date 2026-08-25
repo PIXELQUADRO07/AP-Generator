@@ -1,3 +1,4 @@
+#include "apgen/ui/banner.hpp"
 #include <iostream>
 #include <memory>
 #include <string>
@@ -131,6 +132,7 @@ void print_usage() {
 } // namespace
 
 int main(int argc, char** argv) {
+    apgen::ui::print_banner();
     if (argc < 2) {
         print_usage();
         return 1;

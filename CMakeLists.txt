@@ -21,6 +21,7 @@ set(APGEN_SOURCES
     src/network/nat.cpp
     src/portal/http_server.cpp
     src/portal/captive_portal.cpp
+    src/ui/banner.cpp
 )
 
 if(UNIX AND NOT APPLE)
