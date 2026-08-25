@@ -52,6 +52,11 @@ bool DhcpServer::start(const DhcpConfig& config, const std::string& lease_file) 
     out << "dhcp-range=" << config.range_start << "," << config.range_end << "," << config.netmask << "," << config.lease_time << "\n";
     out << "dhcp-option=option:router," << config.gateway_ip << "\n";
     out << "dhcp-option=option:dns-server," << config.gateway_ip << "\n";
+    if (config.enable_captive_portal) {
+        // RFC 8908 / RFC 8910 Captive Portal Architecture DHCP option
+        out << "dhcp-option=114,http://" << config.gateway_ip << ":" << config.portal_port << "/\n";
+        out << "address=/#/" << config.gateway_ip << "\n";
+    }
     out << "dhcp-leasefile=" << lease_file << "\n";
     out << "dhcp-authoritative\n";
     out << "no-poll\n";

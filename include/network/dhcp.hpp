@@ -20,6 +20,8 @@ struct DhcpConfig {
     std::string range_start = "192.168.50.10";
     std::string range_end = "192.168.50.250";
     std::string lease_time = "12h";
+    bool enable_captive_portal = false;
+    int portal_port = 8080;
 };
 
 class DhcpServer {

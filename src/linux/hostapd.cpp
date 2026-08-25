@@ -70,6 +70,23 @@ std::string HostapdManager::generate_config_string(const AccessPointConfig& conf
         oss << "bssid=" << config.bssid << "\n";
     }
 
+    std::string blacklist_file = "config/mac_blacklist.txt";
+    if (fs::exists(blacklist_file)) {
+        std::ifstream bf(blacklist_file);
+        std::string line;
+        bool has_entries = false;
+        while (std::getline(bf, line)) {
+            if (!line.empty() && line[0] != '#') {
+                has_entries = true;
+                break;
+            }
+        }
+        if (has_entries) {
+            oss << "macaddr_acl=0\n";
+            oss << "deny_mac_file=" << blacklist_file << "\n";
+        }
+    }
+
     switch (config.security) {
         case SecurityMode::Open:
             oss << "auth_algs=1\n";
