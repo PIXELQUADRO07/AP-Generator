@@ -7,38 +7,90 @@
 #include <csignal>
 #include <thread>
 #include <chrono>
+#include <sstream>
+#include <algorithm>
 
 #include "apmanager/core/types.hpp"
 #include "apmanager/core/wifi_backend.hpp"
 #include "apmanager/core/ap_manager.hpp"
 #include "apmanager/core/preset_manager.hpp"
+#include "apmanager/core/i18n.hpp"
 #include "portal/captive_portal.hpp"
+
+#if defined(__linux__)
+#include "linux/client_monitor.hpp"
+#endif
 
 namespace {
 
+using apm::I18n;
+
+std::vector<std::string> split_command_args(const std::string& input) {
+    std::vector<std::string> tokens;
+    std::string current;
+    bool in_quotes = false;
+    char quote_char = '\0';
+
+    for (size_t i = 0; i < input.size(); ++i) {
+        char c = input[i];
+        if ((c == '"' || c == '\'') && !in_quotes) {
+            in_quotes = true;
+            quote_char = c;
+        } else if (in_quotes && c == quote_char) {
+            in_quotes = false;
+            quote_char = '\0';
+        } else if (std::isspace(static_cast<unsigned char>(c)) && !in_quotes) {
+            if (!current.empty()) {
+                tokens.push_back(current);
+                current.clear();
+            }
+        } else {
+            current += c;
+        }
+    }
+    if (!current.empty()) {
+        tokens.push_back(current);
+    }
+    return tokens;
+}
+
+std::string format_bytes(int64_t bytes) {
+    if (bytes <= 0) return "0 B";
+    const char* units[] = {"B", "KB", "MB", "GB", "TB"};
+    int u = 0;
+    double b = static_cast<double>(bytes);
+    while (b >= 1024.0 && u < 4) {
+        b /= 1024.0;
+        u++;
+    }
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(1) << b << " " << units[u];
+    return oss.str();
+}
+
 void print_interfaces(const std::vector<apm::WifiInterface>& interfaces) {
     std::cout << "========================================\n";
-    std::cout << "        Wi-Fi Interfaces Detected       \n";
+    std::cout << "  " << I18n::tr("iface_header") << " (" << interfaces.size() << ")\n";
     std::cout << "========================================\n\n";
 
     if (interfaces.empty()) {
-        std::cout << "Nessuna interfaccia wireless rilevata nel sistema.\n";
+        std::cout << "  " << I18n::tr("iface_none") << "\n\n";
         return;
     }
 
     for (const auto& iface : interfaces) {
         std::cout << "Interface: " << iface.name << "\n";
-        std::cout << "  MAC Address:  " << iface.mac << "\n";
-        std::cout << "  Driver:       " << (iface.driver.empty() ? "N/A" : iface.driver) << "\n";
-        std::cout << "  PHY:          " << (iface.phy_name.empty() ? "N/A" : iface.phy_name) << "\n";
-        std::cout << "  State:        " << (iface.up ? "UP" : "DOWN") << "\n";
-        std::cout << "  Connected:    " << (iface.connected ? "YES" : "NO") << "\n";
+        std::cout << "  " << std::left << std::setw(22) << I18n::tr("iface_mac") << iface.mac << "\n";
+        std::cout << "  " << std::left << std::setw(22) << I18n::tr("iface_driver") << (iface.driver.empty() ? "N/A" : iface.driver) << "\n";
+        std::cout << "  " << std::left << std::setw(22) << I18n::tr("iface_phy") << (iface.phy_name.empty() ? "N/A" : iface.phy_name) << "\n";
+        std::cout << "  " << std::left << std::setw(22) << I18n::tr("iface_state") << (iface.up ? "UP" : "DOWN") << "\n";
+        std::cout << "  " << std::left << std::setw(22) << I18n::tr("iface_connected") << (iface.connected ? "YES" : "NO") << "\n";
         if (!iface.ip_address.empty()) {
-            std::cout << "  IP Address:   " << iface.ip_address << "\n";
+            std::cout << "  " << std::left << std::setw(22) << I18n::tr("iface_ip") << iface.ip_address << "\n";
         }
-        std::cout << "  AP Mode:      " << (iface.supports_ap ? "YES" : "NO") << "\n";
-        std::cout << "  WPA3 (SAE):   " << (iface.supports_wpa3 ? "YES" : "NO") << "\n";
-        std::cout << "  Bands:        ";
+        std::cout << "  " << std::left << std::setw(22) << I18n::tr("iface_ap_mode") << (iface.supports_ap ? "YES" : "NO") << "\n";
+        std::cout << "  " << std::left << std::setw(22) << I18n::tr("iface_wpa3") << (iface.supports_wpa3 ? "YES" : "NO") << "\n";
+        std::cout << "  " << std::left << std::setw(22) << I18n::tr("iface_bands");
         if (iface.bands.empty()) {
             std::cout << "Unknown";
         } else {
@@ -52,26 +104,26 @@ void print_interfaces(const std::vector<apm::WifiInterface>& interfaces) {
 
 void print_capabilities(const apm::WifiInterface& iface) {
     if (iface.name.empty()) {
-        std::cerr << "Errore: Interfaccia specificata non trovata.\n";
+        std::cerr << I18n::tr("cap_not_found") << "\n";
         return;
     }
 
     std::cout << "========================================\n";
-    std::cout << "  Capabilities for: " << iface.name << "\n";
+    std::cout << "  " << I18n::tr("cap_header") << " " << iface.name << "\n";
     std::cout << "========================================\n\n";
 
     std::cout << "Hardware & Network Details:\n";
-    std::cout << "  MAC Address:          " << iface.mac << "\n";
-    std::cout << "  Driver:               " << (iface.driver.empty() ? "Unknown" : iface.driver) << "\n";
-    std::cout << "  PHY Device:           " << (iface.phy_name.empty() ? "Unknown" : iface.phy_name) << "\n";
-    std::cout << "  Link State:           " << (iface.up ? "UP" : "DOWN") << "\n";
-    std::cout << "  Current IP:           " << (iface.ip_address.empty() ? "None" : iface.ip_address) << "\n\n";
+    std::cout << "  " << std::left << std::setw(24) << I18n::tr("iface_mac") << iface.mac << "\n";
+    std::cout << "  " << std::left << std::setw(24) << I18n::tr("iface_driver") << (iface.driver.empty() ? "Unknown" : iface.driver) << "\n";
+    std::cout << "  " << std::left << std::setw(24) << I18n::tr("iface_phy") << (iface.phy_name.empty() ? "Unknown" : iface.phy_name) << "\n";
+    std::cout << "  " << std::left << std::setw(24) << I18n::tr("iface_state") << (iface.up ? "UP" : "DOWN") << "\n";
+    std::cout << "  " << std::left << std::setw(24) << I18n::tr("iface_ip") << (iface.ip_address.empty() ? "None" : iface.ip_address) << "\n\n";
 
     std::cout << "Wireless Features:\n";
-    std::cout << "  Access Point (AP):    " << (iface.supports_ap ? "SUPPORTED" : "UNSUPPORTED") << "\n";
-    std::cout << "  WPA2-Personal:        " << (iface.supports_wpa2 ? "SUPPORTED" : "UNSUPPORTED") << "\n";
-    std::cout << "  WPA3-Personal (SAE):  " << (iface.supports_wpa3 ? "SUPPORTED" : "UNSUPPORTED") << "\n";
-    std::cout << "  AP + STA Concurrency: " << (iface.supports_concurrent_ap_sta ? "SUPPORTED" : "NO / UNKNOWN") << "\n\n";
+    std::cout << "  " << std::left << std::setw(24) << I18n::tr("iface_ap_mode") << (iface.supports_ap ? "SUPPORTED" : "UNSUPPORTED") << "\n";
+    std::cout << "  " << std::left << std::setw(24) << "WPA2-Personal:" << (iface.supports_wpa2 ? "SUPPORTED" : "UNSUPPORTED") << "\n";
+    std::cout << "  " << std::left << std::setw(24) << I18n::tr("iface_wpa3") << (iface.supports_wpa3 ? "SUPPORTED" : "UNSUPPORTED") << "\n";
+    std::cout << "  " << std::left << std::setw(24) << I18n::tr("iface_concurrency") << (iface.supports_concurrent_ap_sta ? "SUPPORTED" : "NO / UNKNOWN") << "\n\n";
 
     std::cout << "Supported Bands & Channels:\n";
     if (!iface.channels_2ghz.empty()) {
@@ -91,262 +143,421 @@ void print_capabilities(const apm::WifiInterface& iface) {
     std::cout << "\n";
 }
 
-void print_usage() {
-    std::cout << "======================================================\n";
-    std::cout << "               AP-Generator CLI                       \n";
-    std::cout << "  Wi-Fi Access Point and Network Management Tool      \n";
-    std::cout << "======================================================\n\n";
-    std::cout << "Uso: ap-generator <comando> [opzioni]\n\n";
-    std::cout << "Comandi Interfaccia:\n";
-    std::cout << "  interfaces                     Elenca tutte le interfacce Wi-Fi rilevate\n";
-    std::cout << "  capabilities <interfaccia>     Mostra le capacità dettagliate della scheda\n\n";
-    std::cout << "Comandi Configurazione & Preset:\n";
-    std::cout << "  preset list                    Elenca tutti i preset salvati\n";
-    std::cout << "  preset show <nome>             Visualizza la configurazione di un preset\n";
-    std::cout << "  preset save <nome> [opzioni]   Crea o salva un preset di configurazione\n";
-    std::cout << "  preset delete <nome>           Elimina un preset esistente\n";
-    std::cout << "  validate <nome|file.json>      Verifica la validità di una configurazione\n\n";
-    std::cout << "Comandi Captive Portal:\n";
-    std::cout << "  portal list                    Elenca i template HTML disponibili\n";
-    std::cout << "  portal test <template> [--port <p>]  Avvia il server HTTP per testare un template\n\n";
-    std::cout << "Comandi Access Point:\n";
-    std::cout << "  start [nome_preset]            Avvia l'Access Point (usando un preset)\n";
-    std::cout << "  stop                           Arresta l'Access Point attivo\n";
-    std::cout << "  status                         Mostra lo stato dell'Access Point e i client\n";
-    std::cout << "  clients                        Elenca i client connessi con DHCP leases\n\n";
-    std::cout << "Opzioni per 'preset save':\n";
-    std::cout << "  --ssid <nome>                  Nome della rete Wi-Fi (SSID)\n";
-    std::cout << "  --interface <iface>            Interfaccia wireless (es. wlan0)\n";
-    std::cout << "  --channel <1-165>              Canale radio Wi-Fi (default: 6)\n";
-    std::cout << "  --security <open|wpa2|wpa3>    Modalità di sicurezza (default: wpa2)\n";
-    std::cout << "  --password <password>          Password WPA2/WPA3 (8-63 caratteri)\n";
-    std::cout << "  --sharing                      Abilita la condivisione internet (NAT)\n";
-    std::cout << "  --upstream <iface>             Interfaccia con connessione Internet (es. eth0)\n";
-    std::cout << "  --portal                       Abilita il Captive Portal\n";
-    std::cout << "  --portal-path <path>           Nome template o percorso captive portal\n\n";
-    std::cout << "Esempio:\n";
-    std::cout << "  ap-generator preset save GuestHotspot --interface wlan0 --ssid FreeGuest --security open --portal --portal-path Google_Modern\n";
-    std::cout << "  ap-generator start GuestHotspot\n";
+void print_help() {
+    std::cout << "=========================================================================\n";
+    std::cout << "                  " << I18n::tr("help_title") << "\n";
+    std::cout << "=========================================================================\n\n";
+
+    std::cout << I18n::tr("help_cat_network") << "\n";
+    std::cout << "  " << I18n::tr("help_interfaces") << "\n";
+    std::cout << "  " << I18n::tr("help_capabilities") << "\n\n";
+
+    std::cout << I18n::tr("help_cat_presets") << "\n";
+    std::cout << "  " << I18n::tr("help_preset_list") << "\n";
+    std::cout << "  " << I18n::tr("help_preset_show") << "\n";
+    std::cout << "  " << I18n::tr("help_preset_save") << "\n";
+    std::cout << "  " << I18n::tr("help_preset_delete") << "\n";
+    std::cout << "  " << I18n::tr("help_validate") << "\n\n";
+
+    std::cout << I18n::tr("help_cat_ap") << "\n";
+    std::cout << "  " << I18n::tr("help_wizard") << "\n";
+    std::cout << "  " << I18n::tr("help_start") << "\n";
+    std::cout << "  " << I18n::tr("help_stop") << "\n";
+    std::cout << "  " << I18n::tr("help_status") << "\n";
+    std::cout << "  " << I18n::tr("help_clients") << "\n";
+    std::cout << "  " << I18n::tr("help_kick") << "\n";
+    std::cout << "  " << I18n::tr("help_blacklist") << "\n\n";
+
+    std::cout << I18n::tr("help_cat_portal") << "\n";
+    std::cout << "  " << I18n::tr("help_portal_list") << "\n";
+    std::cout << "  " << I18n::tr("help_portal_test") << "\n\n";
+
+    std::cout << I18n::tr("help_cat_system") << "\n";
+    std::cout << "  " << I18n::tr("help_language") << "\n";
+    std::cout << "  " << I18n::tr("help_clear") << "\n";
+    std::cout << "  " << I18n::tr("help_help") << "\n";
+    std::cout << "  " << I18n::tr("help_exit") << "\n\n";
 }
 
-} // namespace
+void run_wizard(apm::ApManager& ap_mgr, apm::PresetManager& preset_mgr) {
+    std::cout << "\n" << I18n::tr("wizard_title") << "\n";
+    std::cout << I18n::tr("wizard_welcome") << "\n\n";
 
-int main(int argc, char** argv) {
-    apgen::ui::print_banner();
-    if (argc < 2) {
-        print_usage();
-        return 1;
+    auto interfaces = ap_mgr.list_interfaces();
+    if (interfaces.empty()) {
+        std::cerr << I18n::tr("iface_none") << "\n";
+        return;
     }
 
-    const std::string command = argv[1];
-
-    if (command == "help" || command == "--help" || command == "-h") {
-        print_usage();
-        return 0;
+    std::cout << I18n::tr("wizard_step_iface") << ":\n";
+    for (size_t i = 0; i < interfaces.size(); ++i) {
+        std::cout << "  [" << (i + 1) << "] " << interfaces[i].name 
+                  << " (MAC: " << interfaces[i].mac 
+                  << ", AP Support: " << (interfaces[i].supports_ap ? "YES" : "NO") << ")\n";
     }
 
-    auto backend = std::make_unique<apm::LinuxWifiBackend>();
-    apm::ApManager ap_mgr(std::move(backend));
-    apm::PresetManager preset_mgr;
-    apm::portal::CaptivePortal portal_mgr;
+    std::cout << "Scelta [1-" << interfaces.size() << "] (default 1): ";
+    std::string iface_choice;
+    std::getline(std::cin, iface_choice);
+    int iface_idx = 0;
+    if (!iface_choice.empty()) {
+        try { iface_idx = std::stoi(iface_choice) - 1; } catch (...) {}
+    }
+    if (iface_idx < 0 || iface_idx >= static_cast<int>(interfaces.size())) {
+        iface_idx = 0;
+    }
+    std::string selected_iface = interfaces[iface_idx].name;
+    std::cout << "-> Selezionata interfaccia: " << selected_iface << "\n\n";
 
-    if (command == "interfaces") {
+    // SSID
+    std::cout << I18n::tr("wizard_step_ssid") << " (default: AP-Hotspot): ";
+    std::string ssid;
+    std::getline(std::cin, ssid);
+    if (ssid.empty()) ssid = "AP-Hotspot";
+
+    // Channel
+    std::cout << "Canale Wi-Fi [1-14, 36-165] (default: 6): ";
+    std::string ch_str;
+    std::getline(std::cin, ch_str);
+    int channel = 6;
+    if (!ch_str.empty()) {
+        try { channel = std::stoi(ch_str); } catch (...) {}
+    }
+
+    // Security Mode
+    std::cout << "\n" << I18n::tr("wizard_step_sec") << " (default 2): ";
+    std::string sec_choice;
+    std::getline(std::cin, sec_choice);
+    apm::SecurityMode sec_mode = apm::SecurityMode::WPA2;
+    if (sec_choice == "1") sec_mode = apm::SecurityMode::Open;
+    else if (sec_choice == "3") sec_mode = apm::SecurityMode::WPA3;
+
+    std::string password;
+    if (sec_mode != apm::SecurityMode::Open) {
+        while (true) {
+            std::cout << I18n::tr("wizard_step_pass") << " ";
+            std::getline(std::cin, password);
+            if (password.size() >= 8 && password.size() <= 63) {
+                break;
+            }
+            std::cout << "Password non valida. Deve avere tra 8 e 63 caratteri.\n";
+        }
+    }
+
+    // Internet Sharing
+    std::cout << "\n" << I18n::tr("wizard_step_sharing") << " (default: n): ";
+    std::string share_choice;
+    std::getline(std::cin, share_choice);
+    bool internet_sharing = (share_choice == "s" || share_choice == "S" || share_choice == "y" || share_choice == "Y");
+    std::string upstream_iface;
+
+    if (internet_sharing) {
+        std::cout << I18n::tr("wizard_step_upstream") << " (es. eth0, wlan0): ";
+        std::getline(std::cin, upstream_iface);
+    }
+
+    // Captive Portal
+    std::cout << "\n" << I18n::tr("wizard_step_portal") << " (default: n): ";
+    std::string portal_choice;
+    std::getline(std::cin, portal_choice);
+    bool captive_portal = (portal_choice == "s" || portal_choice == "S" || portal_choice == "y" || portal_choice == "Y");
+    std::string portal_template;
+
+    if (captive_portal) {
+        apm::portal::CaptivePortal pmgr;
+        auto templates = pmgr.list_available_templates();
+        std::cout << I18n::tr("wizard_step_tpl") << ":\n";
+        for (size_t i = 0; i < templates.size(); ++i) {
+            std::cout << "  [" << (i + 1) << "] " << templates[i] << "\n";
+        }
+        std::cout << "Scelta template [1-" << templates.size() << "] (default 1): ";
+        std::string tpl_choice;
+        std::getline(std::cin, tpl_choice);
+        int tpl_idx = 0;
+        if (!tpl_choice.empty()) {
+            try { tpl_idx = std::stoi(tpl_choice) - 1; } catch (...) {}
+        }
+        if (tpl_idx >= 0 && tpl_idx < static_cast<int>(templates.size())) {
+            portal_template = templates[tpl_idx];
+        } else if (!templates.empty()) {
+            portal_template = templates[0];
+        }
+    }
+
+    // Assemble Config
+    apm::AccessPointConfig cfg;
+    cfg.interface = selected_iface;
+    cfg.ssid = ssid;
+    cfg.channel = channel;
+    cfg.security = sec_mode;
+    cfg.password = password;
+    cfg.internet_sharing = internet_sharing;
+    cfg.upstream_interface = upstream_iface;
+    cfg.captive_portal = captive_portal;
+    cfg.portal_path = portal_template;
+
+    // Validate
+    auto val = ap_mgr.validate(cfg);
+    if (!val) {
+        std::cerr << "\n" << I18n::tr("preset_invalid") << " " << val.error << "\n";
+        return;
+    }
+
+    // Save as preset?
+    std::cout << "\n" << I18n::tr("wizard_step_save") << " ";
+    std::string preset_name;
+    std::getline(std::cin, preset_name);
+    if (!preset_name.empty()) {
+        cfg.name = preset_name;
+        std::string err;
+        if (preset_mgr.save_preset(preset_name, cfg, &err)) {
+            std::cout << I18n::tr("preset_saved") << " " << preset_name << "\n";
+        }
+    }
+
+    // Start now?
+    std::cout << "\n" << I18n::tr("wizard_start_now") << " ";
+    std::string start_choice;
+    std::getline(std::cin, start_choice);
+    if (start_choice == "s" || start_choice == "S" || start_choice == "y" || start_choice == "Y") {
+        std::string err;
+        if (ap_mgr.start(cfg, &err)) {
+            std::cout << "\n" << I18n::tr("ap_start_success") << " " << cfg.interface << " (SSID: " << cfg.ssid << ")\n";
+        } else {
+            std::cerr << "\n" << I18n::tr("ap_start_fail") << " " << err << "\n";
+        }
+    }
+
+    std::cout << I18n::tr("wizard_done") << "\n\n";
+}
+
+bool execute_command_tokens(const std::vector<std::string>& tokens,
+                            apm::ApManager& ap_mgr,
+                            apm::PresetManager& preset_mgr,
+                            apm::portal::CaptivePortal& portal_mgr) {
+    if (tokens.empty()) return true;
+
+    const std::string& command = tokens[0];
+
+    if (command == "exit" || command == "quit" || command == "q") {
+        std::cout << I18n::tr("goodbye") << "\n";
+        return false;
+    }
+
+    if (command == "clear" || command == "cls") {
+        std::cout << "\033[2J\033[H";
+        apgen::ui::print_banner();
+        return true;
+    }
+
+    if (command == "help" || command == "?" || command == "--help" || command == "-h") {
+        print_help();
+        return true;
+    }
+
+    if (command == "language" || command == "lang") {
+        if (tokens.size() < 2) {
+            std::cout << I18n::tr("lang_current") << "\n";
+            std::cout << "Uso: language <it|en>\n";
+            return true;
+        }
+        I18n::instance().set_language_by_code(tokens[1]);
+        std::cout << I18n::tr("lang_switched") << "\n";
+        return true;
+    }
+
+    if (command == "interfaces" || command == "ifaces") {
         print_interfaces(ap_mgr.list_interfaces());
-        return 0;
+        return true;
     }
 
     if (command == "capabilities") {
-        if (argc < 3) {
-            std::cerr << "Errore: specificare il nome dell'interfaccia. Es: ap-generator capabilities wlan0\n";
-            return 1;
+        if (tokens.size() < 2) {
+            std::cerr << "Errore: specificare il nome dell'interfaccia. Es: capabilities wlan0\n";
+            return true;
         }
-        std::string iface_name = argv[2];
-        print_capabilities(ap_mgr.get_interface_capabilities(iface_name));
-        return 0;
+        print_capabilities(ap_mgr.get_interface_capabilities(tokens[1]));
+        return true;
+    }
+
+    if (command == "wizard") {
+        run_wizard(ap_mgr, preset_mgr);
+        return true;
     }
 
     if (command == "portal") {
-        if (argc < 3) {
-            std::cerr << "Uso: ap-generator portal <list|test <template>>\n";
-            return 1;
+        if (tokens.size() < 2) {
+            std::cerr << "Uso: portal <list|test <template>>\n";
+            return true;
         }
-        std::string subcmd = argv[2];
+        const std::string& subcmd = tokens[1];
 
         if (subcmd == "list") {
             auto templates = portal_mgr.list_available_templates();
             std::cout << "========================================\n";
-            std::cout << "   Captive Portal Templates (" << templates.size() << ")\n";
+            std::cout << "  " << I18n::tr("portal_templates_title") << " (" << templates.size() << ")\n";
             std::cout << "========================================\n\n";
             for (const auto& t : templates) {
                 std::cout << "  * " << t << "\n";
             }
-            std::cout << "\nPuoi visualizzarne un'anteprima con: ap-generator portal test <nome_template>\n";
-            return 0;
+            std::cout << "\nAnteprima: portal test <nome_template>\n";
+            return true;
         }
 
         if (subcmd == "test") {
-            if (argc < 4) {
-                std::cerr << "Errore: specificare il template da testare. Es: ap-generator portal test Google_Modern\n";
-                return 1;
+            if (tokens.size() < 3) {
+                std::cerr << "Specificare il template da testare. Es: portal test Google_Modern\n";
+                return true;
             }
-            std::string tpl = argv[3];
+            std::string tpl = tokens[2];
             int port = 8080;
-            for (int i = 4; i < argc; ++i) {
-                if (std::string(argv[i]) == "--port" && i + 1 < argc) {
-                    port = std::stoi(argv[++i]);
+            for (size_t i = 3; i < tokens.size(); ++i) {
+                if (tokens[i] == "--port" && i + 1 < tokens.size()) {
+                    port = std::stoi(tokens[++i]);
                 }
             }
 
             std::string resolved = portal_mgr.resolve_template_path(tpl);
-            std::cout << "======================================================\n";
-            std::cout << "       Avvio Captive Portal Server di Test            \n";
+            std::cout << "\n======================================================\n";
+            std::cout << "       Captive Portal Test Server (" << I18n::instance().get_language_name() << ")\n";
             std::cout << "======================================================\n";
             std::cout << "Template: " << tpl << " (" << resolved << ")\n";
             std::cout << "URL:      http://127.0.0.1:" << port << "/\n";
-            std::cout << "Premi CTRL+C per arrestare il server...\n\n";
+            std::cout << I18n::tr("portal_test_stop_hint") << "\n\n";
 
             if (!portal_mgr.start(tpl, port)) {
                 std::cerr << "Errore avvio server HTTP su porta " << port << ".\n";
-                return 1;
+                return true;
             }
 
-            // Loop until signal or input
-            while (portal_mgr.is_running()) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            }
-            return 0;
+            // Wait for user input or interrupt
+            std::string dummy;
+            std::getline(std::cin, dummy);
+            portal_mgr.stop();
+            std::cout << "Server di test arrestato.\n";
+            return true;
         }
 
         std::cerr << "Sottocomando portal sconosciuto: " << subcmd << "\n";
-        return 1;
+        return true;
     }
 
     if (command == "preset") {
-        if (argc < 3) {
-            std::cerr << "Uso: ap-generator preset <list|show|save|delete> [opzioni]\n";
-            return 1;
+        if (tokens.size() < 2) {
+            std::cerr << "Uso: preset <list|show|save|delete> [opzioni]\n";
+            return true;
         }
-        std::string subcmd = argv[2];
+        const std::string& subcmd = tokens[1];
 
         if (subcmd == "list") {
             auto list = preset_mgr.list_presets();
-            std::cout << "Preset disponibili (" << list.size() << ") in " << preset_mgr.get_presets_directory() << ":\n";
+            std::cout << "========================================\n";
+            std::cout << "  " << I18n::tr("preset_list_title") << " (" << list.size() << ")\n";
+            std::cout << "========================================\n";
             if (list.empty()) {
-                std::cout << "  (Nessun preset salvato)\n";
+                std::cout << "  " << I18n::tr("preset_none") << "\n";
             } else {
                 for (const auto& p : list) {
                     std::cout << "  * " << p << "\n";
                 }
             }
-            return 0;
+            std::cout << "\n";
+            return true;
         }
 
         if (subcmd == "show") {
-            if (argc < 4) {
-                std::cerr << "Errore: specificare il nome del preset. Es: ap-generator preset show <nome>\n";
-                return 1;
+            if (tokens.size() < 3) {
+                std::cerr << "Specificare il nome del preset: preset show <nome>\n";
+                return true;
             }
-            std::string name = argv[3];
             apm::AccessPointConfig cfg;
             std::string err;
-            if (!preset_mgr.load_preset(name, cfg, &err)) {
-                std::cerr << "Errore: " << err << "\n";
-                return 1;
+            if (!preset_mgr.load_preset(tokens[2], cfg, &err)) {
+                std::cerr << I18n::tr("preset_load_fail") << " " << err << "\n";
+                return true;
             }
             std::cout << preset_mgr.serialize_config_json(cfg) << "\n";
-            return 0;
+            return true;
         }
 
         if (subcmd == "delete") {
-            if (argc < 4) {
-                std::cerr << "Errore: specificare il nome del preset da eliminare.\n";
-                return 1;
+            if (tokens.size() < 3) {
+                std::cerr << "Specificare il nome del preset da eliminare.\n";
+                return true;
             }
-            std::string name = argv[3];
             std::string err;
-            if (!preset_mgr.delete_preset(name, &err)) {
-                std::cerr << "Errore: " << err << "\n";
-                return 1;
+            if (!preset_mgr.delete_preset(tokens[2], &err)) {
+                std::cerr << I18n::tr("preset_delete_fail") << " " << err << "\n";
+                return true;
             }
-            std::cout << "Preset '" << name << "' eliminato con successo.\n";
-            return 0;
+            std::cout << I18n::tr("preset_deleted") << " '" << tokens[2] << "'\n";
+            return true;
         }
 
         if (subcmd == "save") {
-            if (argc < 4) {
-                std::cerr << "Errore: specificare il nome del preset. Es: ap-generator preset save <nome> [opzioni]\n";
-                return 1;
+            if (tokens.size() < 3) {
+                std::cerr << "Specificare il nome del preset: preset save <nome> [opzioni]\n";
+                return true;
             }
-            std::string name = argv[3];
+            std::string name = tokens[2];
             apm::AccessPointConfig cfg;
             cfg.name = name;
 
-            for (int i = 4; i < argc; ++i) {
-                std::string arg = argv[i];
-                if (arg == "--ssid" && i + 1 < argc) cfg.ssid = argv[++i];
-                else if (arg == "--interface" && i + 1 < argc) cfg.interface = argv[++i];
-                else if (arg == "--channel" && i + 1 < argc) cfg.channel = std::stoi(argv[++i]);
-                else if (arg == "--security" && i + 1 < argc) cfg.security = apm::security_mode_from_string(argv[++i]);
-                else if (arg == "--password" && i + 1 < argc) cfg.password = argv[++i];
+            for (size_t i = 3; i < tokens.size(); ++i) {
+                const std::string& arg = tokens[i];
+                if (arg == "--ssid" && i + 1 < tokens.size()) cfg.ssid = tokens[++i];
+                else if (arg == "--interface" && i + 1 < tokens.size()) cfg.interface = tokens[++i];
+                else if (arg == "--channel" && i + 1 < tokens.size()) cfg.channel = std::stoi(tokens[++i]);
+                else if (arg == "--security" && i + 1 < tokens.size()) cfg.security = apm::security_mode_from_string(tokens[++i]);
+                else if (arg == "--password" && i + 1 < tokens.size()) cfg.password = tokens[++i];
                 else if (arg == "--sharing") cfg.internet_sharing = true;
-                else if (arg == "--upstream" && i + 1 < argc) cfg.upstream_interface = argv[++i];
+                else if (arg == "--upstream" && i + 1 < tokens.size()) cfg.upstream_interface = tokens[++i];
                 else if (arg == "--portal") cfg.captive_portal = true;
-                else if (arg == "--portal-path" && i + 1 < argc) cfg.portal_path = argv[++i];
-                else if (arg == "--gateway" && i + 1 < argc) cfg.gateway_ip = argv[++i];
+                else if (arg == "--portal-path" && i + 1 < tokens.size()) cfg.portal_path = tokens[++i];
+                else if (arg == "--gateway" && i + 1 < tokens.size()) cfg.gateway_ip = tokens[++i];
             }
 
-            if (cfg.ssid.empty()) {
-                cfg.ssid = name;
-            }
+            if (cfg.ssid.empty()) cfg.ssid = name;
 
             std::string err;
             if (!preset_mgr.save_preset(name, cfg, &err)) {
-                std::cerr << "Errore salvataggio preset: " << err << "\n";
-                return 1;
+                std::cerr << "Errore salvataggio: " << err << "\n";
+                return true;
             }
-            std::cout << "Preset '" << name << "' salvato con successo in " << preset_mgr.get_presets_directory() << "/" << name << ".json\n";
-            return 0;
+            std::cout << I18n::tr("preset_saved") << " " << name << " (" << preset_mgr.get_presets_directory() << "/" << name << ".json)\n";
+            return true;
         }
 
         std::cerr << "Sottocomando preset sconosciuto: " << subcmd << "\n";
-        return 1;
+        return true;
     }
 
     if (command == "validate") {
-        if (argc < 3) {
-            std::cerr << "Errore: specificare il nome del preset o il file json da validare.\n";
-            return 1;
+        if (tokens.size() < 2) {
+            std::cerr << "Specificare il nome del preset da validare.\n";
+            return true;
         }
-        std::string target = argv[2];
         apm::AccessPointConfig cfg;
         std::string err;
-        if (!preset_mgr.load_preset(target, cfg, &err)) {
-            std::cerr << "Errore caricamento configurazione: " << err << "\n";
-            return 1;
+        if (!preset_mgr.load_preset(tokens[1], cfg, &err)) {
+            std::cerr << I18n::tr("preset_load_fail") << " " << err << "\n";
+            return true;
         }
-
-        apm::ValidationResult res = ap_mgr.validate(cfg);
+        auto res = ap_mgr.validate(cfg);
         if (res) {
-            std::cout << "Configurazione '" << target << "' VALIDA!\n";
-            std::cout << "  Interface: " << cfg.interface << "\n";
-            std::cout << "  SSID:      " << cfg.ssid << "\n";
-            std::cout << "  Channel:   " << cfg.channel << "\n";
-            std::cout << "  Security:  " << apm::security_mode_to_string(cfg.security) << "\n";
-            std::cout << "  Sharing:   " << (cfg.internet_sharing ? "YES (" + cfg.upstream_interface + ")" : "NO") << "\n";
-            std::cout << "  Portal:    " << (cfg.captive_portal ? "YES (" + cfg.portal_path + ")" : "NO") << "\n";
-            return 0;
+            std::cout << I18n::tr("preset_valid") << " (" << cfg.ssid << " on " << cfg.interface << ")\n";
         } else {
-            std::cerr << "Configurazione NON VALIDA:\n  " << res.error << "\n";
-            return 1;
+            std::cerr << I18n::tr("preset_invalid") << " " << res.error << "\n";
         }
+        return true;
     }
 
     if (command == "status") {
-        apm::ApStatus status = ap_mgr.get_status();
+        auto status = ap_mgr.get_status();
         std::cout << "========================================\n";
-        std::cout << "        AP-Generator Status             \n";
+        std::cout << "  " << I18n::tr("status_header") << "\n";
         std::cout << "========================================\n";
-        std::cout << "Status:    " << (status.running ? "RUNNING" : "STOPPED") << "\n";
+        std::cout << "Stato:     " << (status.running ? I18n::tr("running_status_active") : I18n::tr("running_status_stopped")) << "\n";
         if (status.running) {
             std::cout << "SSID:      " << status.config.ssid << "\n";
             std::cout << "Interface: " << status.config.interface << "\n";
@@ -355,73 +566,205 @@ int main(int argc, char** argv) {
             std::cout << "Gateway:   " << status.config.gateway_ip << "\n";
             std::cout << "Sharing:   " << (status.config.internet_sharing ? "YES (" + status.config.upstream_interface + ")" : "NO") << "\n";
             std::cout << "Portal:    " << (status.config.captive_portal ? "YES (" + status.config.portal_path + ")" : "NO") << "\n";
-            std::cout << "Uptime:    " << status.uptime << "\n";
-            std::cout << "Clients:   " << status.connected_clients.size() << "\n";
+            std::cout << I18n::tr("status_uptime") << " " << status.uptime << "\n";
+            std::cout << I18n::tr("status_clients_count") << " " << status.connected_clients.size() << "\n";
         }
-        return 0;
+        std::cout << "\n";
+        return true;
     }
 
     if (command == "clients") {
-        apm::ApStatus status = ap_mgr.get_status();
-        std::cout << "========================================\n";
-        std::cout << "        Connected Clients List          \n";
-        std::cout << "========================================\n";
+        auto status = ap_mgr.get_status();
+        std::cout << "========================================================================================\n";
+        std::cout << "  " << I18n::tr("clients_header") << "\n";
+        std::cout << "========================================================================================\n";
         if (!status.running) {
-            std::cout << "Nessun Access Point attivo.\n";
-            return 0;
+            std::cout << "  " << I18n::tr("ap_not_running") << "\n\n";
+            return true;
         }
         if (status.connected_clients.empty()) {
-            std::cout << "Nessun client connesso o lease DHCP attivo.\n";
-            return 0;
+            std::cout << "  " << I18n::tr("clients_none") << "\n\n";
+            return true;
         }
-        std::cout << std::left << std::setw(20) << "MAC Address"
-                  << std::setw(18) << "IP Address"
-                  << std::setw(20) << "Hostname"
-                  << "Expiry\n";
-        std::cout << "----------------------------------------------------------------\n";
+
+        std::cout << std::left << std::setw(19) << "MAC Address"
+                  << std::setw(16) << "IP Address"
+                  << std::setw(18) << "Hostname"
+                  << std::setw(12) << "Signal"
+                  << std::setw(12) << "RX Bytes"
+                  << std::setw(12) << "TX Bytes"
+                  << "\n";
+        std::cout << "----------------------------------------------------------------------------------------\n";
         for (const auto& c : status.connected_clients) {
-            std::cout << std::left << std::setw(20) << c.mac
-                      << std::setw(18) << c.ip
-                      << std::setw(20) << c.hostname
-                      << c.connected_since << "\n";
+            std::string sig = (c.signal_dbm != 0) ? (std::to_string(c.signal_dbm) + " dBm") : "N/A";
+            std::cout << std::left << std::setw(19) << c.mac
+                      << std::setw(16) << (c.ip.empty() ? "Pending DHCP" : c.ip)
+                      << std::setw(18) << (c.hostname.empty() ? "Unknown" : c.hostname)
+                      << std::setw(12) << sig
+                      << std::setw(12) << format_bytes(c.rx_bytes)
+                      << std::setw(12) << format_bytes(c.tx_bytes)
+                      << "\n";
         }
-        return 0;
+        std::cout << "\n";
+        return true;
+    }
+
+    if (command == "kick") {
+        if (tokens.size() < 2) {
+            std::cerr << "Specificare il MAC address del client da disconnettere: kick <mac>\n";
+            return true;
+        }
+#if defined(__linux__)
+        auto status = ap_mgr.get_status();
+        std::string iface = status.running ? status.config.interface : "";
+        apm::linux_backend::ClientMonitor cm(iface);
+        std::string err;
+        if (cm.kick_client(tokens[1], &err)) {
+            std::cout << I18n::tr("kick_success") << " " << tokens[1] << "\n";
+        } else {
+            std::cerr << I18n::tr("kick_fail") << " " << err << "\n";
+        }
+#else
+        std::cerr << "Kick command non supportato su questa piattaforma.\n";
+#endif
+        return true;
+    }
+
+    if (command == "blacklist") {
+#if defined(__linux__)
+        apm::linux_backend::ClientMonitor cm;
+        if (tokens.size() < 2 || tokens[1] == "list") {
+            auto list = cm.get_blacklist();
+            std::cout << "========================================\n";
+            std::cout << "  " << I18n::tr("blacklist_list") << " (" << list.size() << ")\n";
+            std::cout << "========================================\n";
+            if (list.empty()) {
+                std::cout << "  " << I18n::tr("blacklist_empty") << "\n\n";
+            } else {
+                for (const auto& mac : list) {
+                    std::cout << "  * " << mac << "\n";
+                }
+                std::cout << "\n";
+            }
+            return true;
+        }
+
+        std::string sub = tokens[1];
+        if (sub == "add" && tokens.size() >= 3) {
+            cm.blacklist_add(tokens[2]);
+            std::cout << I18n::tr("blacklist_added") << " " << tokens[2] << "\n";
+            return true;
+        }
+        if ((sub == "del" || sub == "remove") && tokens.size() >= 3) {
+            if (cm.blacklist_remove(tokens[2])) {
+                std::cout << I18n::tr("blacklist_removed") << " " << tokens[2] << "\n";
+            } else {
+                std::cerr << "MAC address non trovato nella blacklist.\n";
+            }
+            return true;
+        }
+
+        std::cerr << "Uso: blacklist <list|add <mac>|remove <mac>>\n";
+#else
+        std::cerr << "Blacklist non supportata su questa piattaforma.\n";
+#endif
+        return true;
     }
 
     if (command == "start") {
+        if (tokens.size() < 2) {
+            std::cerr << I18n::tr("ap_specify_preset") << "\n";
+            return true;
+        }
         apm::AccessPointConfig cfg;
-        if (argc >= 3) {
-            std::string preset_name = argv[2];
-            std::string err;
-            if (!preset_mgr.load_preset(preset_name, cfg, &err)) {
-                std::cerr << "Errore caricamento preset '" << preset_name << "': " << err << "\n";
-                return 1;
-            }
-        } else {
-            std::cerr << "Specificare il nome di un preset da avviare. Es: ap-generator start MyPreset\n";
-            return 1;
-        }
-
         std::string err;
-        if (!ap_mgr.start(cfg, &err)) {
-            std::cerr << "Errore avvio AP: " << err << "\n";
-            return 1;
+        if (!preset_mgr.load_preset(tokens[1], cfg, &err)) {
+            std::cerr << I18n::tr("preset_load_fail") << " " << err << "\n";
+            return true;
         }
-        std::cout << "Access Point avviato con successo su " << cfg.interface << " (SSID: " << cfg.ssid << ").\n";
-        return 0;
+        if (!ap_mgr.start(cfg, &err)) {
+            std::cerr << I18n::tr("ap_start_fail") << " " << err << "\n";
+            return true;
+        }
+        std::cout << I18n::tr("ap_start_success") << " " << cfg.interface << " (SSID: " << cfg.ssid << ")\n";
+        return true;
     }
 
     if (command == "stop") {
         std::string err;
         if (!ap_mgr.stop(&err)) {
-            std::cerr << "Errore arresto AP: " << err << "\n";
-            return 1;
+            std::cerr << I18n::tr("ap_stop_fail") << " " << err << "\n";
+            return true;
         }
-        std::cout << "Access Point arrestato.\n";
+        std::cout << I18n::tr("ap_stop_success") << "\n";
+        return true;
+    }
+
+    std::cout << I18n::tr("unknown_command") << "\n";
+    return true;
+}
+
+void start_interactive_shell(apm::ApManager& ap_mgr, apm::PresetManager& preset_mgr, apm::portal::CaptivePortal& portal_mgr) {
+    std::cout << "\n=========================================================================\n";
+    std::cout << "  " << I18n::tr("app_title") << "\n";
+    std::cout << "  " << I18n::tr("lang_current") << " | Digita 'help' per i comandi | 'exit' per uscire\n";
+    std::cout << "=========================================================================\n\n";
+
+    std::string line;
+    while (true) {
+        std::cout << "ap-generator: ";
+        std::cout.flush();
+
+        if (!std::getline(std::cin, line)) {
+            std::cout << "\n" << I18n::tr("goodbye") << "\n";
+            break;
+        }
+
+        auto tokens = split_command_args(line);
+        if (tokens.empty()) continue;
+
+        bool keep_running = execute_command_tokens(tokens, ap_mgr, preset_mgr, portal_mgr);
+        if (!keep_running) {
+            break;
+        }
+    }
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
+    // Print ASCII Banner
+    apgen::ui::print_banner();
+
+    // Check optional leading language switch parameter (e.g. --lang en)
+    int arg_start = 1;
+    if (argc >= 3 && (std::string(argv[1]) == "--lang" || std::string(argv[1]) == "-l")) {
+        I18n::instance().set_language_by_code(argv[2]);
+        arg_start = 3;
+    }
+
+    auto backend = std::make_unique<apm::LinuxWifiBackend>();
+    apm::ApManager ap_mgr(std::move(backend));
+    apm::PresetManager preset_mgr;
+    apm::portal::CaptivePortal portal_mgr;
+
+    // No arguments -> Start Interactive Shell (REPL)
+    if (arg_start >= argc) {
+        start_interactive_shell(ap_mgr, preset_mgr, portal_mgr);
         return 0;
     }
 
-    std::cout << "Comando sconosciuto: " << command << "\n\n";
-    print_usage();
-    return 1;
+    std::vector<std::string> tokens;
+    for (int i = arg_start; i < argc; ++i) {
+        tokens.push_back(argv[i]);
+    }
+
+    if (tokens[0] == "shell" || tokens[0] == "interactive" || tokens[0] == "repl") {
+        start_interactive_shell(ap_mgr, preset_mgr, portal_mgr);
+        return 0;
+    }
+
+    // Execute one-shot CLI command
+    execute_command_tokens(tokens, ap_mgr, preset_mgr, portal_mgr);
+    return 0;
 }
