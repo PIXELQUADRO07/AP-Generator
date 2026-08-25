@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TP-LINK Login</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background-color: #ebeff2;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            background-color: #2bb8c4; 
+            height: 64px;
+            display: flex;
+            align-items: center;
+            padding: 0 5%;
+            justify-content: space-between;
+            border-bottom: 3px solid #1a8a94;
+        }
+
+        .logo-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-text {
+            font-size: 22px;
+            font-weight: bold;
+            color: #fff;
+            text-transform: uppercase;
+        }
+
+        .lang-select {
+            font-size: 12px;
+            color: #fff;
+        }
+
+        .lang-select span {
+            cursor: pointer;
+            text-decoration: underline;
+            margin: 0 5px;
+        }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .login-box {
+            background: #fff;
+            width: 300px;
+            padding: 25px;
+            border: 1px solid #b5c2cb;
+            box-shadow: 2px 2px 0px rgba(0,0,0,0.05);
+        }
+
+        h2 {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            margin: 0 0 15px 0;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #dae1e7;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 13px;
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 5px;
+        }
+
+        .password-container {
+            margin-bottom: 20px;
+        }
+
+        input[type="password"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #999;
+            background: #fff;
+            font-size: 14px;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        input[type="password"]:focus {
+            border-color: #2bb8c4;
+        }
+
+        button {
+            width: 100px; 
+            padding: 6px;
+            background-color: #f0f0f0;
+            border: 1px solid #707070;
+            color: #000;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #e5e5e5;
+            border-color: #333;
+        }
+
+        .btn-wrap {
+            text-align: right;
+        }
+
+        .note {
+            margin-top: 20px;
+            font-size: 11px;
+            color: #666;
+            padding: 10px;
+            background-color: #ffffcc;
+            border: 1px solid #e6db55;
+        }
+
+        footer {
+            padding: 10px;
+            text-align: center;
+            font-size: 11px;
+            color: #666;
+            background-color: #d1d9e0;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo-wrap">
+        <svg width="28" height="28" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+            <path d="m0 111.36c0 4.1599 3.4759 8.3198 8.2158 8.3198h31.615v32.003c0 4.1599 3.4759 8.3198 8.2158 8.3198h27.031v-76.002h-75.078zm100.21-111.36c-33.035 0-59.427 26.559-59.427 59.355v12.644h33.187v-12.644c0-14.236 11.54-25.755 26.239-25.755 14.54 0 24.659 10.236 24.659 25.435 0 15.044-10.908 26.083-25.455 26.083h-12.484v33.591h12.484c32.411 0 58.651-26.711 58.651-59.679 0-34.231-24.499-59.031-57.855-59.031" fill="#ffffff"/>
+        </svg>
+        <div class="logo-text">TP-LINK</div>
+    </div>
+    <div class="lang-select">
+        <span onclick="changeLang('en')">English</span> | <span onclick="changeLang('ru')">Русский</span>
+    </div>
+</header>
+
+<div class="main-container">
+    <div class="login-box">
+        <h2 id="title">Login</h2>
+        
+        <form action="/get" method="GET">
+            <label class="input-label" id="label-text">Password:</label>
+            <div class="password-container">
+                <input type="password" name="password" id="pass-field" required autofocus>
+            </div>
+            <div class="btn-wrap">
+                <button type="submit" id="btn-text">Login</button>
+            </div>
+        </form>
+
+        <div class="note" id="note-text">
+            Enter your password to access the Internet.
+        </div>
+    </div>
+</div>
+
+<footer>
+    Copyright &copy; 2016 TP-LINK Technologies Co., Ltd. All rights reserved.
+</footer>
+
+<script>
+    const translations = {
+        en: {
+            title: "Login",
+            label: "Password:",
+            btn: "Login",
+            note: "Enter your password to access the Internet."
+        },
+        ru: {
+            title: "Авторизация",
+            label: "Пароль:",
+            btn: "Вход",
+            note: "Введите пароль для доступа в интернет."
+        }
+    };
+
+    function changeLang(lang) {
+        document.getElementById('title').innerText = translations[lang].title;
+        document.getElementById('label-text').innerText = translations[lang].label;
+        document.getElementById('btn-text').innerText = translations[lang].btn;
+        document.getElementById('note-text').innerText = translations[lang].note;
+    }
+</script>
+
+</body>
+</html>
