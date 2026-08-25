@@ -1,962 +1,202 @@
 # AP-Generator
 
-**AP-Generator** is a C++ tool for creating, configuring, and managing Wi-Fi Access Points using an existing network connection.
+**AP-Generator** è un software avanzato in C++17 per la creazione, configurazione e gestione automatizzata di Access Point Wi-Fi con condivisione di rete (NAT), servizi DHCP/DNS, gestione preset, Captive Portal personalizzabile e monitoraggio avanzato dei client.
 
-The project is designed to provide a unified interface for configuring wireless networks without requiring the user to manually configure multiple networking components.
+Offre sia una **Shell Interattiva (REPL)** da terminale con prompt dedicato, banner e **Procedura Guidata (Wizard)**, sia un'interfaccia a riga di comando tradizionale per script e automazioni, con supporto **multilingua nativo (Italiano / Inglese)**.
 
-The first development target is **GNU/Linux**, with a **Windows backend planned for a future release**.
-
----
-
-## Overview
-
-AP-Generator is designed around a modular architecture that separates the application core from operating-system-specific networking functionality.
-
-The main goal is to make Access Point creation as simple as:
-
-```text
-Discover → Configure → Create → Manage
-```
-
-The application can detect available Wi-Fi interfaces, inspect their capabilities, create an Access Point, optionally share an existing Internet connection, and provide additional services such as DHCP, DNS, NAT, and a captive portal.
+📖 **Per la documentazione approfondita e la guida a ciascuna azione, consulta il [Manuale Utente e Tecnico (docs/DOCUMENTATION.md)](docs/DOCUMENTATION.md).**
 
 ---
 
-## Main Features
+## Stato Attuale del Progetto (v1.1-alpha / Linux Target)
 
-### Wi-Fi Interface Discovery
-
-AP-Generator can detect Wi-Fi interfaces available on the system and retrieve information about their capabilities.
-
-The discovery system is designed to provide information such as:
-
-* Interface name
-* MAC address
-* Interface state
-* Connection status
-* Current network
-* IP configuration
-* Access Point support
-* Supported wireless bands
-* Available channels
-* WPA2 support
-* WPA3 support
-* Station/AP concurrency support
-
-Example:
-
-```text
-Wi-Fi Interfaces
-────────────────────────────────
-
-wlan0
-  MAC: XX:XX:XX:XX:XX:XX
-  State: UP
-  Connected: YES
-  AP mode: YES
-  WPA3: YES
-  Bands: 2.4 GHz / 5 GHz
-
-wlan1
-  MAC: XX:XX:XX:XX:XX:XX
-  State: DOWN
-  Connected: NO
-  AP mode: YES
-  WPA3: NO
-```
-
-Capability detection is important because wireless adapters and drivers do not all support the same functionality.
+* [x] **Shell Interattiva (REPL) & Wizard**: Avvio automatico con prompt dedicato (`ap-generator: `), gestione comandi dinamica e configurazione guidata (`wizard`).
+* [x] **Supporto Multi-lingua (i18n)**: Dizionari completi in **Italiano (`it`)** e **Inglese (`en`)**, rilevamento automatico `LANG` e switch a runtime (`language it|en`).
+* [x] **Discovery & Capabilities**: Rilevamento automatico schede Wi-Fi (`/sys/class/net`, `iw phy`), canali 2.4 GHz / 5 GHz, supporto AP, WPA2, WPA3 (SAE) e AP+STA concurrency.
+* [x] **Motore Access Point**: Integrazione e generazione configurazioni dinamiche per `hostapd` (Open, WPA2, WPA3, WPA2/WPA3 Mixed, canali e BSSID custom).
+* [x] **Servizi di Rete & RFC 8908**: Gestione IP, orchestrazione di `dnsmasq` per DHCP autoritativo e server DNS, opzione DHCP 114 (Captive Portal Architecture) per popup istantaneo su smartphone.
+* [x] **Condivisione Internet & NAT**: Abilitazione IP forwarding kernel (`sysctl`), routing e masquerade `iptables` / `nftables` con upstream interface dedicata (es. `eth0`, `wlan0`).
+* [x] **Captive Portal Nativo**: Server HTTP asincrono non-bloccante C++, intercettazione e redirect DNS/Firewall, endpoint di captive detection per dispositivi Android (`/generate_204`), Windows (`/ncsi.txt`) e Apple (`/hotspot-detect.html`), autorizzazione dinamica client.
+* [x] **13 Template Portal Inclusi**: Template HTML/CSS pronti all'uso (Google, Amazon, Microsoft, TP-Link, Starlink, Facebook, Apple, Starbucks, Twitch, Twitter).
+* [x] **Preset Manager**: Salvataggio, caricamento, esportazione, importazione e validazione di configurazioni in formato JSON.
+* [x] **Monitoraggio Avanzato & Client**: Tracciamento stato AP, uptime, lettura leases DHCP e statistiche stazioni via `iw station dump` (MAC, IP, Hostname, Segnale dBm, Byte RX/TX).
+* [x] **Client Kick & MAC Blacklist**: Disconnessione forzata stazioni (`kick <mac>`) e gestione lista nera MAC address (`blacklist <add|del|list>`).
+* [x] **Suite di Test (6/6 Passati)**: Test di integrazione nativi C++ per preset, hostapd, DNS, HTTP captive portal, i18n e blacklist.
 
 ---
 
-# Access Point Creation
-
-AP-Generator allows users to create a Wi-Fi Access Point using a compatible wireless interface.
-
-The Access Point configuration can include:
-
-* SSID
-* Wireless interface
-* Channel
-* BSSID
-* Security mode
-* Password
-* Internet sharing
-* Captive portal
-
-Example:
+## Architettura del Sistema
 
 ```text
-Access Point Configuration
-
-SSID:        MyNetwork
-Interface:   wlan1
-Channel:     6
-BSSID:       Automatic
-
-Security:    WPA2
-Password:    ********
-
-Internet sharing: YES
-Captive portal:   NO
-```
-
-Once configured, AP-Generator handles the required networking components automatically.
-
----
-
-# Wireless Security
-
-AP-Generator is designed to support several wireless security modes.
-
-## Open
-
-An open network does not require a Wi-Fi password.
-
-```text
-Security: OPEN
-```
-
-This mode is useful for environments where authentication is handled by another mechanism, such as a captive portal.
-
----
-
-## WPA2-Personal
-
-Standard WPA2-Personal authentication using a pre-shared key.
-
-```text
-Security: WPA2
-Password: ********
+                           AP-Generator
+                                │
+                   ┌────────────▼────────────┐
+                   │  Interactive REPL Shell │ (Wizard, i18n IT/EN)
+                   └────────────┬────────────┘
+                                │
+                        ┌───────▼───────┐
+                        │   ApManager   │ (Core Engine & Validation)
+                        └───────┬───────┘
+                                │
+          ┌─────────────────────┴─────────────────────┐
+          │                                           │
+   ┌──────▼──────┐                             ┌──────▼──────┐
+   │    Linux    │ (Attivo)                    │   Windows   │ (Pianificato)
+   │   Backend   │                             │   Backend   │
+   └──────┬──────┘                             └──────┬──────┘
+          │
+  ┌───────┼───────────────────┬───────────────────┐
+  ▼       ▼                   ▼                   ▼
+nl80211 hostapd            dnsmasq             iptables /
+ / iw   (Wi-Fi AP)      (DHCP & DNS)           nftables (NAT)
 ```
 
 ---
 
-## WPA2/WPA3 Mixed
+## Requisiti di Sistema (Linux)
 
-A mixed configuration allows compatible clients to use WPA3 while maintaining compatibility with clients that only support WPA2.
+### Strumenti e Servizi di Rete Richiesti a Runtime:
+* **Linux Kernel** con supporto a mac80211 / nl80211
+* **hostapd**: Per la gestione della modalità Master/Access Point
+* **dnsmasq**: Per il server DHCP e DNS locale
+* **iptables** / **nftables**: Per la gestione NAT Masquerade e redirect porta 80
+* **iproute2** (`ip` command): Per la configurazione di link e indirizzi IP
+* **iw**: Per l'ispezione avanzata delle frequenze, canali e stazioni connesse
 
-```text
-Security: WPA2/WPA3
-```
-
-Availability depends on the wireless adapter, driver, and underlying networking stack.
-
----
-
-## WPA3-Personal
-
-WPA3-Personal can be used when supported by the hardware and software environment.
-
-AP-Generator is designed to detect capabilities before enabling unsupported security configurations.
+### Dipendenze di Build:
+* **Compilatore C++17** (GCC 9+ o Clang 10+)
+* **Make** o **CMake** 3.16+
 
 ---
 
-# BSSID
+## Compilazione ed Esecuzione Test
 
-AP-Generator can support automatic or manually specified BSSID configuration.
+1. **Compilazione rapida con Makefile:**
+   ```bash
+   make
+   ```
 
-```text
-BSSID:
-  Automatic
-  Custom: XX:XX:XX:XX:XX:XX
-```
-
-Custom BSSID functionality depends on the capabilities of the wireless adapter and driver.
-
----
-
-# Internet Sharing
-
-One of the main features of AP-Generator is the ability to use an existing Internet connection as the upstream connection for the newly created Access Point.
-
-For example:
-
-```text
-                    Internet
-                       │
-                       ▼
-                ┌─────────────┐
-                │ Wi-Fi Router│
-                └──────┬──────┘
-                       │
-                       ▼
-                  wlan0 / STA
-                       │
-                       │
-                  AP-Generator
-                       │
-                       │ NAT
-                       ▼
-                  wlan1 / AP
-                       │
-              ┌────────┼────────┐
-              ▼        ▼        ▼
-           Laptop    Phone    Tablet
-```
-
-The upstream connection and the Access Point can potentially operate on the same physical wireless adapter when the hardware and driver support simultaneous Station/AP operation.
-
-AP-Generator will detect this capability instead of assuming that every adapter supports it.
+2. **Esecuzione della suite di test (6 test di integrazione):**
+   ```bash
+   make test
+   # oppure ./run_tests
+   ```
 
 ---
 
-# DHCP and DNS
+## Utilizzo
 
-AP-Generator can provide the network services required by connected clients.
+### Modalità 1: Shell Interattiva (REPL)
 
-A typical AP network could use:
-
-```text
-Gateway:
-192.168.50.1
-
-Network:
-192.168.50.0/24
-
-Clients:
-192.168.50.2
-192.168.50.3
-192.168.50.4
-...
-```
-
-DHCP can provide clients with:
-
-* IP address
-* Subnet mask
-* Default gateway
-* DNS server
-* Lease information
-
-DNS functionality can also be used as part of the captive portal system.
-
----
-
-# NAT and Routing
-
-When Internet sharing is enabled, AP-Generator can configure routing and Network Address Translation between the upstream interface and the Access Point.
-
-Example:
+Avviando `sudo ./ap-generator` senza argomenti, si entra nella **Shell Interattiva**:
 
 ```text
-Internet
-   │
-   ▼
-Upstream Interface
-   │
-   ▼
-  NAT
-   │
-   ▼
-AP Interface
-   │
-   ▼
-192.168.50.0/24
+ap-generator: 
 ```
 
-The Linux implementation is intended to integrate with the native Linux networking and firewall infrastructure.
-
----
-
-# Captive Portal
-
-AP-Generator is designed to provide an optional captive portal for Open Access Points.
-
-A captive portal can present a local web page to clients before granting normal network access.
-
-Example:
-
-```text
-Client
-  │
-  │ Connects to AP
-  ▼
-DHCP
-  │
-  ▼
-DNS
-  │
-  ▼
-Captive Portal
-  │
-  ▼
-Login / Welcome Page
-  │
-  ▼
-Authorized Client
-  │
-  ▼
-Internet
-```
-
-The portal can be customized using standard web technologies.
-
-Example:
-
-```text
-portal/
-└── myportal/
-    ├── index.html
-    ├── style.css
-    └── script.js
-```
-
-Users can create their own portal interface without modifying the AP-Generator source code.
-
----
-
-# Custom Captive Portals
-
-AP-Generator is intended to support custom HTML-based captive portals.
-
-A portal may contain:
-
-* HTML
-* CSS
-* JavaScript
-* Images
-* Other static web resources
-
-Example:
+Dalla shell è possibile digitare i comandi in modo continuo:
 
 ```bash
-ap-generator portal load ./myportal
+ap-generator: wizard              # Avvia la procedura guidata interattiva
+ap-generator: interfaces          # Mostra le schede Wi-Fi
+ap-generator: capabilities wlan0  # Mostra dettagli e canali della scheda
+ap-generator: preset list         # Elenca i preset salvati
+ap-generator: start LabHotspot    # Avvia l'Access Point
+ap-generator: status              # Mostra stato, uptime e client attivi
+ap-generator: clients             # Mostra tabella client con segnale dBm e traffico
+ap-generator: kick aa:bb:cc:dd:ee # Disconnette un client
+ap-generator: blacklist add <mac> # Aggiunge un MAC alla lista nera
+ap-generator: portal list         # Elenca i template captive portal
+ap-generator: portal test Google_Modern # Anteprima web template
+ap-generator: language en         # Cambia lingua in Inglese (o 'language it')
+ap-generator: stop                # Arresta l'Access Point
+ap-generator: exit                # Esci dall'applicazione
 ```
-
-This makes it possible to create custom interfaces for:
-
-* Guest networks
-* Private laboratories
-* Events
-* Educational environments
-* IoT networks
-* Development environments
-* Network testing
-
-AP-Generator does not require or intend to intercept HTTPS traffic. Captive portal functionality is designed to operate using standard captive-network mechanisms.
 
 ---
 
-# Client Management
+### Modalità 2: Riga di Comando Tradizionale (One-Shot CLI)
 
-AP-Generator is planned to provide information about clients connected to the Access Point.
+Per script, automazioni o esecuzione diretta:
 
-Potential information includes:
+```bash
+# Mostra le interfacce Wi-Fi
+./ap-generator interfaces
 
-* Client MAC address
-* Assigned IP address
-* Connection state
-* Connection time
-* Traffic statistics
-* DHCP lease information
+# Procedura guidata o avvio rapido da preset
+sudo ./ap-generator start LabHotspot
 
-Example:
+# Controllo client e stato
+./ap-generator status
+./ap-generator clients
+
+# Disconnessione forzata client
+sudo ./ap-generator kick 00:11:22:33:44:55
+
+# Gestione lingua da CLI
+./ap-generator --lang en help
+```
+
+---
+
+### Procedura Guidata (`wizard`)
+
+Il comando `wizard` guida passo-passo nella configurazione:
+1. Selezione numerica dell'interfaccia Wi-Fi.
+2. Nome della rete Wi-Fi (SSID).
+3. Selezione canale radio (2.4 GHz / 5 GHz).
+4. Modalità di sicurezza: Open, WPA2-Personal, WPA3-Personal.
+5. Condivisione Internet (NAT) e interfaccia upstream.
+6. Abilitazione Captive Portal e selezione template grafico.
+7. Salvataggio opzionale come Preset riutilizzabile.
+8. Avvio immediato dell'Access Point.
+
+---
+
+### Template Captive Portal Inclusi (`portal/presets/`)
+
+AP-Generator include 13 template pronti:
+* `Google_Modern`, `Better_Google_Mobile`
+* `Amazon`, `Apple`, `Microsoft`, `Facebook`, `Twitter`, `Twitch`
+* `Starlink`, `Starbucks` (before/after)
+* `TP-LINK-Var1`, `TP-LINK-Var2-OLD`
+
+Anteprima locale:
+```bash
+./ap-generator portal test Starlink --port 8080
+```
+
+---
+
+## Roadmap di Sviluppo
 
 ```text
-Connected Clients
-────────────────────────────────────
-
-MAC Address          IP Address
-XX:XX:XX:XX:XX:01    192.168.50.10
-XX:XX:XX:XX:XX:02    192.168.50.11
-XX:XX:XX:XX:XX:03    192.168.50.12
+[==================================>   ] 85% Completato
 ```
+
+### ✅ Completato
+- [x] Motore Core C++17 modulare e sistema di Logging
+- [x] Shell Interattiva (REPL) con prompt dedicato e comandi integrati
+- [x] Procedura guidata interattiva passo-passo (`wizard`)
+- [x] Supporto Multi-lingua completo (Italiano / Inglese)
+- [x] Ispezione e discovery interfacce Wi-Fi (canali, bande, WPA3, concurrency)
+- [x] Generazione dinamica `hostapd.conf` (Open, WPA2, WPA3 SAE, Mixed)
+- [x] Orchestrazione DHCP/DNS (`dnsmasq`) con RFC 8908 DHCP option 114
+- [x] Routing NAT Masquerade (`iptables` / `nftables`)
+- [x] Captive Portal HTTP nativo non-bloccante con 13 template inclusi
+- [x] Monitoraggio stazioni (`iw station dump` per segnale RSSI e traffico RX/TX)
+- [x] Client kick (`hostapd_cli deauthenticate`) e MAC Blacklist
+- [x] Preset Manager JSON (salva, carica, elimina, valida, esporta)
+- [x] Suite di test di integrazione automatizzata (6 test)
+
+### 🔜 Prossimi Passi
+- [ ] Modalità Demone Watchdog / Process Supervisor (auto-ripristino in caso di crash)
+- [ ] Creazione Unit File Systemd (`systemctl start ap-generator@preset`)
+- [ ] Interfaccia Grafica Utente (GUI con Qt o Web Dashboard locale)
+- [ ] Implementazione Backend Windows (`WindowsWifiBackend` con Native Wifi API)
 
 ---
 
-# Presets
+## Licenza
 
-AP-Generator can store Access Point configurations as reusable presets.
-
-Example:
-
-```json
-{
-    "name": "Lab",
-    "ssid": "MyLab",
-    "channel": 6,
-    "security": "wpa2",
-    "interface": "wlan1",
-    "internet_sharing": true,
-    "captive_portal": false
-}
-```
-
-Presets can be used to quickly recreate previously configured networks.
-
-Example commands:
-
-```bash
-ap-generator preset list
-ap-generator preset save lab
-ap-generator preset load lab
-ap-generator preset delete lab
-```
-
-Presets can also be exported and imported for use on other systems.
-
----
-
-# Command Line Interface
-
-The initial version of AP-Generator is designed around a CLI.
-
-## List Wi-Fi Interfaces
-
-```bash
-ap-generator interfaces
-```
-
-Displays the Wi-Fi interfaces detected by AP-Generator.
-
----
-
-## Show Interface Capabilities
-
-```bash
-ap-generator capabilities wlan0
-```
-
-Displays the capabilities detected for a specific interface.
-
----
-
-## Start an Access Point
-
-```bash
-ap-generator start
-```
-
-Starts the configured Access Point.
-
----
-
-## Stop an Access Point
-
-```bash
-ap-generator stop
-```
-
-Stops the currently running Access Point and cleans up the networking configuration.
-
----
-
-## Show Status
-
-```bash
-ap-generator status
-```
-
-Displays the current state of the Access Point and connected clients.
-
----
-
-## Presets
-
-```bash
-ap-generator preset list
-ap-generator preset save lab
-ap-generator preset load lab
-```
-
----
-
-## Captive Portal
-
-```bash
-ap-generator portal start
-ap-generator portal stop
-ap-generator portal load ./myportal
-```
-
----
-
-# Architecture
-
-AP-Generator uses a platform-independent core with operating-system-specific backends.
-
-```text
-                    AP-Generator
-                         │
-                ┌────────▼────────┐
-                │   Core Engine   │
-                └────────┬────────┘
-                         │
-          ┌──────────────┴──────────────┐
-          │                             │
-   ┌──────▼──────┐               ┌──────▼──────┐
-   │    Linux    │               │   Windows   │
-   │   Backend   │               │   Backend   │
-   └──────┬──────┘               └──────┬──────┘
-          │                             │
-   Linux networking              Windows networking
-```
-
-The core should not directly depend on operating-system-specific networking APIs.
-
-Instead, platform-specific implementations communicate with the core through abstract interfaces.
-
----
-
-# Linux Backend
-
-GNU/Linux is the initial development target.
-
-The Linux backend is expected to integrate with existing Linux networking components.
-
-The planned architecture is:
-
-```text
-                  AP-Generator
-                       │
-        ┌──────────────┼──────────────┐
-        │              │              │
-        ▼              ▼              ▼
-     nl80211        hostapd         Network
-        │                             │
-        │                          dnsmasq
-        │                             │
-        └──────────────┬──────────────┘
-                       ▼
-                    nftables
-```
-
-## nl80211
-
-The Linux wireless subsystem can be used to obtain wireless interface information and capabilities.
-
-## hostapd
-
-`hostapd` is intended to manage Access Point functionality such as:
-
-* SSID
-* Channel
-* Authentication
-* WPA2
-* WPA3
-* Client association
-* AP operation
-
-## dnsmasq
-
-`dnsmasq` can provide:
-
-* DHCP
-* DNS
-
-for the Access Point network.
-
-## nftables
-
-`nftables` can be used for:
-
-* NAT
-* Forwarding
-* Firewall rules
-* Network isolation
-* Captive portal traffic policies
-
-The exact implementation may evolve during development.
-
----
-
-# Project Structure
-
-The project is organized to keep platform-independent functionality separate from operating-system-specific code.
-
-```text
-AP-Generator/
-├── CMakeLists.txt
-├── README.md
-├── LICENSE
-│
-├── include/
-│   └── apgen/
-│       ├── core/
-│       │   ├── types.hpp
-│       │   ├── wifi_backend.hpp
-│       │   ├── ap_manager.hpp
-│       │   └── preset_manager.hpp
-│       │
-│       ├── network/
-│       │   ├── dhcp.hpp
-│       │   ├── dns.hpp
-│       │   ├── nat.hpp
-│       │   └── interface.hpp
-│       │
-│       └── portal/
-│           ├── captive_portal.hpp
-│           └── http_server.hpp
-│
-├── src/
-│   ├── main.cpp
-│   │
-│   ├── core/
-│   │   ├── ap_manager.cpp
-│   │   └── preset_manager.cpp
-│   │
-│   ├── linux/
-│   │   ├── wifi_backend.cpp
-│   │   ├── hostapd.cpp
-│   │   ├── network.cpp
-│   │   └── firewall.cpp
-│   │
-│   ├── network/
-│   │   ├── dhcp.cpp
-│   │   ├── dns.cpp
-│   │   ├── nat.cpp
-│   │   └── interface.cpp
-│   │
-│   └── portal/
-│       ├── captive_portal.cpp
-│       └── http_server.cpp
-│
-├── config/
-│   └── presets/
-│
-├── portal/
-│   └── default/
-│       ├── index.html
-│       ├── style.css
-│       └── script.js
-│
-├── tests/
-│
-└── docs/
-```
-
----
-
-# C++ API
-
-The core is designed around abstract interfaces.
-
-For example:
-
-```cpp
-class WifiBackend {
-public:
-    virtual ~WifiBackend() = default;
-
-    virtual std::vector<WifiInterface>
-    discover_interfaces() = 0;
-
-    virtual bool create_ap(
-        const AccessPointConfig& config
-    ) = 0;
-
-    virtual bool stop_ap() = 0;
-};
-```
-
-The Linux implementation can provide:
-
-```text
-LinuxWifiBackend
-LinuxAPBackend
-LinuxNetworkBackend
-```
-
-A future Windows implementation can provide:
-
-```text
-WindowsWifiBackend
-WindowsAPBackend
-WindowsNetworkBackend
-```
-
-This allows the core application to remain independent of the operating system.
-
----
-
-# Project Design Goals
-
-AP-Generator follows several design principles.
-
-## Platform Independence
-
-The application core should not depend on a specific operating system.
-
-## Capability Detection
-
-The application should detect hardware and driver capabilities rather than assuming that every adapter supports every feature.
-
-## Modular Architecture
-
-Wi-Fi management, networking, DHCP, DNS, NAT, firewall management, and captive portal functionality should remain separate components.
-
-## Reuse Existing Infrastructure
-
-Where appropriate, AP-Generator should orchestrate existing and well-tested networking components instead of unnecessarily reimplementing mature networking functionality.
-
-## Configuration Driven
-
-Network configurations should be stored in structured configuration files and reusable presets.
-
-## CLI First
-
-The initial development will focus on a command-line interface.
-
-A graphical interface can be added later without requiring a redesign of the core.
-
----
-
-# Requirements
-
-The Linux version is expected to require:
-
-* GNU/Linux
-* A compatible Wi-Fi adapter
-* A driver supporting Access Point mode
-* C++ compiler
-* CMake
-* Appropriate privileges for network configuration
-
-Additional dependencies may be required depending on the selected implementation.
-
----
-
-# Building
-
-AP-Generator uses CMake.
-
-Clone the repository:
-
-```bash
-git clone https://github.com/<username>/AP-Generator.git
-cd AP-Generator
-```
-
-Create a build directory:
-
-```bash
-mkdir build
-cd build
-```
-
-Configure the project:
-
-```bash
-cmake ..
-```
-
-Build:
-
-```bash
-cmake --build . -j$(nproc)
-```
-
-Installation instructions will be added as the project develops.
-
----
-
-# Typical Workflow
-
-A typical AP-Generator workflow is:
-
-```text
-┌─────────────────────┐
-│ Discover Interfaces │
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│ Detect Capabilities │
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│ Select Wi-Fi Device │
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│ Configure AP        │
-│ SSID / Channel /    │
-│ Security / BSSID    │
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│ Start Access Point  │
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│ Configure DHCP/DNS  │
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│ Optional NAT        │
-│ / Internet Sharing  │
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│ Optional Captive    │
-│ Portal              │
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│ Monitor Clients     │
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│ Stop & Clean Up     │
-└─────────────────────┘
-```
-
----
-
-# Development Roadmap
-
-## Phase 1 — Core
-
-* [ ] C++ project structure
-* [ ] CMake build system
-* [ ] Logging
-* [ ] Configuration system
-* [ ] CLI
-* [ ] Wi-Fi interface discovery
-
-## Phase 2 — Access Point
-
-* [ ] Open Access Point
-* [ ] WPA2-Personal
-* [ ] WPA2/WPA3 mixed mode
-* [ ] WPA3-Personal
-* [ ] SSID configuration
-* [ ] Channel configuration
-* [ ] BSSID configuration
-* [ ] AP start/stop management
-
-## Phase 3 — Network Services
-
-* [ ] DHCP
-* [ ] DNS
-* [ ] IP forwarding
-* [ ] NAT
-* [ ] Firewall management
-* [ ] Network cleanup
-
-## Phase 4 — Internet Sharing
-
-* [ ] Detect upstream interface
-* [ ] Configure routing
-* [ ] Configure NAT
-* [ ] Connection status
-* [ ] Automatic cleanup
-
-## Phase 5 — Captive Portal
-
-* [ ] Embedded HTTP server
-* [ ] Custom HTML portals
-* [ ] DNS integration
-* [ ] Captive portal detection handling
-* [ ] Client authorization
-* [ ] Portal templates
-
-## Phase 6 — Presets
-
-* [ ] Save configurations
-* [ ] Load configurations
-* [ ] Delete configurations
-* [ ] Import configurations
-* [ ] Export configurations
-
-## Phase 7 — Client Management
-
-* [ ] Connected client detection
-* [ ] DHCP lease information
-* [ ] Connection statistics
-* [ ] Traffic statistics
-* [ ] Client management
-
-## Phase 8 — Graphical Interface
-
-* [ ] Cross-platform GUI
-* [ ] Interface selection
-* [ ] AP configuration
-* [ ] Client monitoring
-* [ ] Captive portal management
-* [ ] Preset management
-
-## Phase 9 — Windows Backend
-
-* [ ] Windows Wi-Fi discovery
-* [ ] Windows capability detection
-* [ ] Windows AP implementation
-* [ ] Windows networking
-* [ ] Windows Internet sharing
-* [ ] Cross-platform testing
-
----
-
-# Security and Intended Use
-
-AP-Generator is intended for networks, devices, and infrastructure that the user owns or is explicitly authorized to administer.
-
-Examples of intended use include:
-
-* Personal Wi-Fi hotspots
-* Guest networks
-* Private laboratories
-* Development environments
-* Educational demonstrations
-* IoT testing
-* Local network experiments
-* Controlled networking environments
-
-AP-Generator does not require or intend to intercept encrypted HTTPS traffic.
-
-Users are responsible for ensuring that their network configuration complies with applicable laws, regulations, and network policies.
-
----
-
-# Long-Term Vision
-
-The long-term goal of AP-Generator is to provide a unified and easy-to-use interface for Access Point management across GNU/Linux and Windows.
-
-The intended workflow is:
-
-```text
-                 AP-Generator
-
-                      │
-                      ▼
-                 DISCOVER
-                      │
-                      ▼
-                CONFIGURE
-                      │
-                      ▼
-                  CREATE
-                      │
-             ┌────────┴────────┐
-             ▼                 ▼
-        INTERNET           LOCAL ONLY
-        SHARING
-             │
-             ▼
-       CAPTIVE PORTAL
-             │
-             ▼
-       MANAGE CLIENTS
-             │
-             ▼
-          SAVE AS
-          PRESET
-```
-
-The Linux implementation will serve as the foundation of the project. Once the Linux backend is stable, additional platform backends can be implemented while keeping the same core architecture.
-
----
-
-# Status
-
-**Current development target: GNU/Linux**
-
-AP-Generator is currently in development. Features listed in the roadmap may not yet be implemented.
-
-The project is being developed incrementally, starting with Wi-Fi interface discovery and Access Point creation before moving toward networking services, Internet sharing, captive portals, presets, and eventually Windows support.
-
----
-
-# License
-
-The project license has not yet been selected.
+Questo progetto è distribuito sotto licenza **MIT**. Consulta il file `LICENSE` per ulteriori dettagli.
