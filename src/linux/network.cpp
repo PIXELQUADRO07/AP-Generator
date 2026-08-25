@@ -1,5 +1,6 @@
 #include "network.hpp"
 #include "firewall.hpp"
+#include "client_monitor.hpp"
 #include "network/interface.hpp"
 #include "network/nat.hpp"
 
@@ -29,6 +30,8 @@ bool LinuxNetworkService::setup_ap_network(const AccessPointConfig& config, std:
     dhcp_cfg.netmask = config.netmask;
     dhcp_cfg.range_start = config.dhcp_range_start;
     dhcp_cfg.range_end = config.dhcp_range_end;
+    dhcp_cfg.enable_captive_portal = config.captive_portal;
+    dhcp_cfg.portal_port = 8080;
     dhcp_server_.start(dhcp_cfg);
 
     // 3. Configure NAT if internet sharing is enabled
@@ -65,17 +68,8 @@ bool LinuxNetworkService::teardown_ap_network(const AccessPointConfig& config, s
 }
 
 std::vector<ClientInfo> LinuxNetworkService::get_clients() const {
-    std::vector<ClientInfo> clients;
-    auto leases = dhcp_server_.get_leases();
-    for (const auto& l : leases) {
-        ClientInfo ci;
-        ci.mac = l.mac;
-        ci.ip = l.ip;
-        ci.hostname = l.hostname;
-        ci.connected_since = l.expiry;
-        clients.push_back(ci);
-    }
-    return clients;
+    ClientMonitor monitor(last_config_.interface);
+    return monitor.get_clients();
 }
 
 } // namespace apm::linux_backend
