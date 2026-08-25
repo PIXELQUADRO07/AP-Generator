@@ -9,16 +9,27 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
+find_package(Threads REQUIRED)
+
 set(APGEN_SOURCES
     src/main.cpp
     src/core/ap_manager.cpp
     src/core/preset_manager.cpp
+    src/network/interface.cpp
+    src/network/dhcp.cpp
+    src/network/dns.cpp
+    src/network/nat.cpp
+    src/portal/http_server.cpp
+    src/portal/captive_portal.cpp
 )
 
 if(UNIX AND NOT APPLE)
     list(APPEND APGEN_SOURCES
         src/linux/wifi_backend.cpp
         src/linux/wifi_capabilities.cpp
+        src/linux/hostapd.cpp
+        src/linux/network.cpp
+        src/linux/firewall.cpp
     )
 endif()
 
@@ -28,6 +39,11 @@ target_include_directories(ap-generator
     PRIVATE
         ${CMAKE_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/src/linux
+)
+
+target_link_libraries(ap-generator
+    PRIVATE
+        Threads::Threads
 )
 
 if(UNIX AND NOT APPLE)
