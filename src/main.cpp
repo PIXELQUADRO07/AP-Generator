@@ -3,11 +3,15 @@
 #include <string>
 #include <vector>
 #include <iomanip>
+#include <csignal>
+#include <thread>
+#include <chrono>
 
 #include "apmanager/core/types.hpp"
 #include "apmanager/core/wifi_backend.hpp"
 #include "apmanager/core/ap_manager.hpp"
 #include "apmanager/core/preset_manager.hpp"
+#include "portal/captive_portal.hpp"
 
 namespace {
 
@@ -101,10 +105,14 @@ void print_usage() {
     std::cout << "  preset save <nome> [opzioni]   Crea o salva un preset di configurazione\n";
     std::cout << "  preset delete <nome>           Elimina un preset esistente\n";
     std::cout << "  validate <nome|file.json>      Verifica la validità di una configurazione\n\n";
+    std::cout << "Comandi Captive Portal:\n";
+    std::cout << "  portal list                    Elenca i template HTML disponibili\n";
+    std::cout << "  portal test <template> [--port <p>]  Avvia il server HTTP per testare un template\n\n";
     std::cout << "Comandi Access Point:\n";
     std::cout << "  start [nome_preset]            Avvia l'Access Point (usando un preset)\n";
     std::cout << "  stop                           Arresta l'Access Point attivo\n";
-    std::cout << "  status                         Mostra lo stato dell'Access Point e i client\n\n";
+    std::cout << "  status                         Mostra lo stato dell'Access Point e i client\n";
+    std::cout << "  clients                        Elenca i client connessi con DHCP leases\n\n";
     std::cout << "Opzioni per 'preset save':\n";
     std::cout << "  --ssid <nome>                  Nome della rete Wi-Fi (SSID)\n";
     std::cout << "  --interface <iface>            Interfaccia wireless (es. wlan0)\n";
@@ -114,10 +122,10 @@ void print_usage() {
     std::cout << "  --sharing                      Abilita la condivisione internet (NAT)\n";
     std::cout << "  --upstream <iface>             Interfaccia con connessione Internet (es. eth0)\n";
     std::cout << "  --portal                       Abilita il Captive Portal\n";
-    std::cout << "  --portal-path <path>           Percorso del file/cartella captive portal\n\n";
+    std::cout << "  --portal-path <path>           Nome template o percorso captive portal\n\n";
     std::cout << "Esempio:\n";
-    std::cout << "  ap-generator preset save LabHotspot --interface wlan0 --ssid LabNetwork --password SecretPass123 --channel 6\n";
-    std::cout << "  ap-generator validate LabHotspot\n";
+    std::cout << "  ap-generator preset save GuestHotspot --interface wlan0 --ssid FreeGuest --security open --portal --portal-path Google_Modern\n";
+    std::cout << "  ap-generator start GuestHotspot\n";
 }
 
 } // namespace
@@ -138,6 +146,7 @@ int main(int argc, char** argv) {
     auto backend = std::make_unique<apm::LinuxWifiBackend>();
     apm::ApManager ap_mgr(std::move(backend));
     apm::PresetManager preset_mgr;
+    apm::portal::CaptivePortal portal_mgr;
 
     if (command == "interfaces") {
         print_interfaces(ap_mgr.list_interfaces());
@@ -152,6 +161,62 @@ int main(int argc, char** argv) {
         std::string iface_name = argv[2];
         print_capabilities(ap_mgr.get_interface_capabilities(iface_name));
         return 0;
+    }
+
+    if (command == "portal") {
+        if (argc < 3) {
+            std::cerr << "Uso: ap-generator portal <list|test <template>>\n";
+            return 1;
+        }
+        std::string subcmd = argv[2];
+
+        if (subcmd == "list") {
+            auto templates = portal_mgr.list_available_templates();
+            std::cout << "========================================\n";
+            std::cout << "   Captive Portal Templates (" << templates.size() << ")\n";
+            std::cout << "========================================\n\n";
+            for (const auto& t : templates) {
+                std::cout << "  * " << t << "\n";
+            }
+            std::cout << "\nPuoi visualizzarne un'anteprima con: ap-generator portal test <nome_template>\n";
+            return 0;
+        }
+
+        if (subcmd == "test") {
+            if (argc < 4) {
+                std::cerr << "Errore: specificare il template da testare. Es: ap-generator portal test Google_Modern\n";
+                return 1;
+            }
+            std::string tpl = argv[3];
+            int port = 8080;
+            for (int i = 4; i < argc; ++i) {
+                if (std::string(argv[i]) == "--port" && i + 1 < argc) {
+                    port = std::stoi(argv[++i]);
+                }
+            }
+
+            std::string resolved = portal_mgr.resolve_template_path(tpl);
+            std::cout << "======================================================\n";
+            std::cout << "       Avvio Captive Portal Server di Test            \n";
+            std::cout << "======================================================\n";
+            std::cout << "Template: " << tpl << " (" << resolved << ")\n";
+            std::cout << "URL:      http://127.0.0.1:" << port << "/\n";
+            std::cout << "Premi CTRL+C per arrestare il server...\n\n";
+
+            if (!portal_mgr.start(tpl, port)) {
+                std::cerr << "Errore avvio server HTTP su porta " << port << ".\n";
+                return 1;
+            }
+
+            // Loop until signal or input
+            while (portal_mgr.is_running()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            }
+            return 0;
+        }
+
+        std::cerr << "Sottocomando portal sconosciuto: " << subcmd << "\n";
+        return 1;
     }
 
     if (command == "preset") {
@@ -279,13 +344,44 @@ int main(int argc, char** argv) {
         std::cout << "========================================\n";
         std::cout << "        AP-Generator Status             \n";
         std::cout << "========================================\n";
-        std::cout << "Status: " << (status.running ? "RUNNING" : "STOPPED") << "\n";
+        std::cout << "Status:    " << (status.running ? "RUNNING" : "STOPPED") << "\n";
         if (status.running) {
             std::cout << "SSID:      " << status.config.ssid << "\n";
             std::cout << "Interface: " << status.config.interface << "\n";
             std::cout << "Channel:   " << status.config.channel << "\n";
+            std::cout << "Security:  " << apm::security_mode_to_string(status.config.security) << "\n";
+            std::cout << "Gateway:   " << status.config.gateway_ip << "\n";
+            std::cout << "Sharing:   " << (status.config.internet_sharing ? "YES (" + status.config.upstream_interface + ")" : "NO") << "\n";
+            std::cout << "Portal:    " << (status.config.captive_portal ? "YES (" + status.config.portal_path + ")" : "NO") << "\n";
             std::cout << "Uptime:    " << status.uptime << "\n";
             std::cout << "Clients:   " << status.connected_clients.size() << "\n";
+        }
+        return 0;
+    }
+
+    if (command == "clients") {
+        apm::ApStatus status = ap_mgr.get_status();
+        std::cout << "========================================\n";
+        std::cout << "        Connected Clients List          \n";
+        std::cout << "========================================\n";
+        if (!status.running) {
+            std::cout << "Nessun Access Point attivo.\n";
+            return 0;
+        }
+        if (status.connected_clients.empty()) {
+            std::cout << "Nessun client connesso o lease DHCP attivo.\n";
+            return 0;
+        }
+        std::cout << std::left << std::setw(20) << "MAC Address"
+                  << std::setw(18) << "IP Address"
+                  << std::setw(20) << "Hostname"
+                  << "Expiry\n";
+        std::cout << "----------------------------------------------------------------\n";
+        for (const auto& c : status.connected_clients) {
+            std::cout << std::left << std::setw(20) << c.mac
+                      << std::setw(18) << c.ip
+                      << std::setw(20) << c.hostname
+                      << c.connected_since << "\n";
         }
         return 0;
     }
