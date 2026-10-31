@@ -1,37 +1,37 @@
 # AP-Generator
 
-**AP-Generator** è un software avanzato in C++17 per la creazione, configurazione e gestione automatizzata di Access Point Wi-Fi con condivisione di rete (NAT), servizi DHCP/DNS, gestione preset, Captive Portal personalizzabile e monitoraggio avanzato dei client.
+**AP-Generator** is an advanced C++17 software for the creation, configuration, and automated management of Wi-Fi Access Points with network sharing (NAT), DHCP/DNS services, preset management, and more.
 
-Offre sia una **Shell Interattiva (REPL)** da terminale con prompt dedicato, banner e **Procedura Guidata (Wizard)**, sia un'interfaccia a riga di comando tradizionale per script e automazioni, con supporto **multilingua nativo (Italiano / Inglese)**.
+It offers both an Interactive Shell (REPL) in the terminal with a dedicated prompt, banner, and Wizard, as well as a traditional command-line interface for scripts and automation.
 
-📖 **Per la documentazione approfondita e la guida a ciascuna azione, consulta il [Manuale Utente e Tecnico (docs/DOCUMENTATION.md)](docs/DOCUMENTATION.md).**
-
----
-
-## Stato Attuale del Progetto (v1.1-alpha / Linux Target)
-
-* [x] **Shell Interattiva (REPL) & Wizard**: Avvio automatico con prompt dedicato (`ap-generator: `), gestione comandi dinamica e configurazione guidata (`wizard`).
-* [x] **Supporto Multi-lingua (i18n)**: Dizionari completi in **Italiano (`it`)** e **Inglese (`en`)**, rilevamento automatico `LANG` e switch a runtime (`language it|en`).
-* [x] **Discovery & Capabilities**: Rilevamento automatico schede Wi-Fi (`/sys/class/net`, `iw phy`), canali 2.4 GHz / 5 GHz, supporto AP, WPA2, WPA3 (SAE) e AP+STA concurrency.
-* [x] **Motore Access Point**: Integrazione e generazione configurazioni dinamiche per `hostapd` (Open, WPA2, WPA3, WPA2/WPA3 Mixed, canali e BSSID custom).
-* [x] **Servizi di Rete & RFC 8908**: Gestione IP, orchestrazione di `dnsmasq` per DHCP autoritativo e server DNS, opzione DHCP 114 (Captive Portal Architecture) per popup istantaneo su smartphone.
-* [x] **Condivisione Internet & NAT**: Abilitazione IP forwarding kernel (`sysctl`), routing e masquerade `iptables` / `nftables` con upstream interface dedicata (es. `eth0`, `wlan0`).
-* [x] **Captive Portal Nativo**: Server HTTP asincrono non-bloccante C++, intercettazione e redirect DNS/Firewall, endpoint di captive detection per dispositivi Android (`/generate_204`), Windows (`/ncsi.txt`) e Apple (`/hotspot-detect.html`), autorizzazione dinamica client.
-* [x] **13 Template Portal Inclusi**: Template HTML/CSS pronti all'uso (Google, Amazon, Microsoft, TP-Link, Starlink, Facebook, Apple, Starbucks, Twitch, Twitter).
-* [x] **Preset Manager**: Salvataggio, caricamento, esportazione, importazione e validazione di configurazioni in formato JSON.
-* [x] **Monitoraggio Avanzato & Client**: Tracciamento stato AP, uptime, lettura leases DHCP e statistiche stazioni via `iw station dump` (MAC, IP, Hostname, Segnale dBm, Byte RX/TX).
-* [x] **Client Kick & MAC Blacklist**: Disconnessione forzata stazioni (`kick <mac>`) e gestione lista nera MAC address (`blacklist <add|del|list>`).
-* [x] **Suite di Test (6/6 Passati)**: Test di integrazione nativi C++ per preset, hostapd, DNS, HTTP captive portal, i18n e blacklist.
+📖 For the in-depth documentation and guidance on each action, see the [User and Technical Manual (docs/DOCUMENTATION.md)](docs/DOCUMENTATION.md).
 
 ---
 
-## Architettura del Sistema
+## Current Project Status (v1.1-alpha / Linux Target)
+
+* [x] **Interactive Shell (REPL) & Wizard**: Automatic startup with a dedicated prompt (`ap-generator: `), dynamic command management, and guided setup (`wizard`).
+* [x] **Multi-language Support (i18n)**: Complete dictionaries in **Italian (`it`)** and **English (`en`)**, automatic `LANG` detection, and runtime switching (`language it|en`).
+* [x] **Discovery & Capabilities**: Automatic detection of Wi-Fi interfaces (`/sys/class/net`, `iw phy`), 2.4 GHz / 5 GHz channels, AP support, WPA2, WPA3 (SAE), and AP+STA concurrency.
+* [x] **Access Point Engine**: Integration and dynamic generation of `hostapd` configurations (Open, WPA2, WPA3, WPA2/WPA3 Mixed, custom channels, and BSSID).
+* [x] **Network Services & RFC 8908**: IP management, `dnsmasq` orchestration for authoritative DHCP and DNS, DHCP option 114 (Captive Portal Architecture) for instant popup on smartphones and devices.
+* [x] **Internet Sharing & NAT**: Kernel IP forwarding (`sysctl`), routing, and masquerade with `iptables` / `nftables` using a dedicated upstream interface (e.g. `eth0`, `wlan0`).
+* [x] **Native Captive Portal**: Asynchronous non-blocking C++ HTTP server, DNS/firewall interception and redirect, captive detection endpoints for Android devices (`/generate_204`), Windows, and iOS.
+* [x] **13 Included Portal Templates**: Ready-to-use HTML/CSS templates (Google, Amazon, Microsoft, TP-Link, Starlink, Facebook, Apple, Starbucks, Twitch, Twitter).
+* [x] **Preset Manager**: Save, load, export, import, and validate configurations in JSON format.
+* [x] **Advanced Monitoring & Clients**: AP status tracking, uptime, DHCP lease reading, and station statistics via `iw station dump` (MAC, IP, Hostname, Signal dBm, RX/TX bytes).
+* [x] **Client Kick & MAC Blacklist**: Forced disconnection of stations (`kick <mac>`) and management of a MAC blacklist (`blacklist <add|del|list>`).
+* [x] **Test Suite (6/6 Passed)**: Native C++ integration tests for preset, hostapd, DNS, HTTP captive portal, i18n, and blacklist.
+
+---
+
+## System Architecture
 
 ```text
                            AP-Generator
                                 │
                    ┌────────────▼────────────┐
-                   │  Interactive REPL Shell │ (Wizard, i18n IT/EN)
+                   │  Interactive REPL Shell │ (Wizard, i18n EN/IT)
                    └────────────┬────────────┘
                                 │
                         ┌───────▼───────┐
@@ -41,162 +41,162 @@ Offre sia una **Shell Interattiva (REPL)** da terminale con prompt dedicato, ban
           ┌─────────────────────┴─────────────────────┐
           │                                           │
    ┌──────▼──────┐                             ┌──────▼──────┐
-   │    Linux    │ (Attivo)                    │   Windows   │ (Pianificato)
+   │    Linux    │ (Active)                   │   Windows   │ (Planned)
    │   Backend   │                             │   Backend   │
    └──────┬──────┘                             └──────┬──────┘
           │
   ┌───────┼───────────────────┬───────────────────┐
   ▼       ▼                   ▼                   ▼
 nl80211 hostapd            dnsmasq             iptables /
- / iw   (Wi-Fi AP)      (DHCP & DNS)           nftables (NAT)
+  / iw   (Wi-Fi AP)      (DHCP & DNS)           nftables (NAT)
 ```
 
 ---
 
-## Requisiti di Sistema (Linux)
+## System Requirements (Linux)
 
-### Strumenti e Servizi di Rete Richiesti a Runtime:
-* **Linux Kernel** con supporto a mac80211 / nl80211
-* **hostapd**: Per la gestione della modalità Master/Access Point
-* **dnsmasq**: Per il server DHCP e DNS locale
-* **iptables** / **nftables**: Per la gestione NAT Masquerade e redirect porta 80
-* **iproute2** (`ip` command): Per la configurazione di link e indirizzi IP
-* **iw**: Per l'ispezione avanzata delle frequenze, canali e stazioni connesse
+### Runtime Tools and Network Services Required:
+* **Linux Kernel** with support for mac80211 / nl80211
+* **hostapd**: For managing Master/Access Point mode
+* **dnsmasq**: For the local DHCP and DNS server
+* **iptables** / **nftables**: For NAT masquerade management and port 80 redirection
+* **iproute2** (`ip` command): For configuring link and IP addresses
+* **iw**: For advanced inspection of frequencies, channels, and connected stations
 
-### Dipendenze di Build:
-* **Compilatore C++17** (GCC 9+ o Clang 10+)
-* **Make** o **CMake** 3.16+
+### Build Dependencies:
+* **C++17 compiler** (GCC 9+ or Clang 10+)
+* **Make** or **CMake** 3.16+
 
 ---
 
-## Compilazione ed Esecuzione Test
+## Build and Test Execution
 
-1. **Compilazione rapida con Makefile:**
+1. **Quick build with Makefile:**
    ```bash
    make
    ```
 
-2. **Esecuzione della suite di test (6 test di integrazione):**
+2. **Run the test suite (6 integration tests):**
    ```bash
    make test
-   # oppure ./run_tests
+   # or ./run_tests
    ```
 
 ---
 
-## Utilizzo
+## Usage
 
-### Modalità 1: Shell Interattiva (REPL)
+### Mode 1: Interactive Shell (REPL)
 
-Avviando `sudo ./ap-generator` senza argomenti, si entra nella **Shell Interattiva**:
+Launching `sudo ./ap-generator` without arguments enters the **Interactive Shell**:
 
 ```text
 ap-generator: 
 ```
 
-Dalla shell è possibile digitare i comandi in modo continuo:
+From the shell, you can type commands continuously:
 
 ```bash
-ap-generator: wizard              # Avvia la procedura guidata interattiva
-ap-generator: interfaces          # Mostra le schede Wi-Fi
-ap-generator: capabilities wlan0  # Mostra dettagli e canali della scheda
-ap-generator: preset list         # Elenca i preset salvati
-ap-generator: start LabHotspot    # Avvia l'Access Point
-ap-generator: status              # Mostra stato, uptime e client attivi
-ap-generator: clients             # Mostra tabella client con segnale dBm e traffico
-ap-generator: kick aa:bb:cc:dd:ee # Disconnette un client
-ap-generator: blacklist add <mac> # Aggiunge un MAC alla lista nera
-ap-generator: portal list         # Elenca i template captive portal
-ap-generator: portal test Google_Modern # Anteprima web template
-ap-generator: language en         # Cambia lingua in Inglese (o 'language it')
-ap-generator: stop                # Arresta l'Access Point
-ap-generator: exit                # Esci dall'applicazione
+ap-generator: wizard              # Starts the interactive guided setup
+ap-generator: interfaces          # Shows Wi-Fi interfaces
+ap-generator: capabilities wlan0  # Shows interface details and channels
+ap-generator: preset list         # Lists saved presets
+ap-generator: start LabHotspot    # Starts the Access Point
+ap-generator: status              # Shows status, uptime, and active clients
+ap-generator: clients             # Shows the client table with dBm signal and traffic
+ap-generator: kick aa:bb:cc:dd:ee # Disconnects a client
+ap-generator: blacklist add <mac> # Adds a MAC to the blacklist
+ap-generator: portal list         # Lists captive portal templates
+ap-generator: portal test Google_Modern # Previews a web template
+ap-generator: language en         # Switches language to English (or 'language it')
+ap-generator: stop                # Stops the Access Point
+ap-generator: exit                # Exits the application
 ```
 
 ---
 
-### Modalità 2: Riga di Comando Tradizionale (One-Shot CLI)
+### Mode 2: Traditional Command-Line (One-Shot CLI)
 
-Per script, automazioni o esecuzione diretta:
+For scripts, automation, or direct execution:
 
 ```bash
-# Mostra le interfacce Wi-Fi
+# Show Wi-Fi interfaces
 ./ap-generator interfaces
 
-# Procedura guidata o avvio rapido da preset
+# Guided setup or quick startup from a preset
 sudo ./ap-generator start LabHotspot
 
-# Controllo client e stato
+# Client and status checks
 ./ap-generator status
 ./ap-generator clients
 
-# Disconnessione forzata client
+# Forced client disconnection
 sudo ./ap-generator kick 00:11:22:33:44:55
 
-# Gestione lingua da CLI
+# Language management from CLI
 ./ap-generator --lang en help
 ```
 
 ---
 
-### Procedura Guidata (`wizard`)
+### Guided Setup (`wizard`)
 
-Il comando `wizard` guida passo-passo nella configurazione:
-1. Selezione numerica dell'interfaccia Wi-Fi.
-2. Nome della rete Wi-Fi (SSID).
-3. Selezione canale radio (2.4 GHz / 5 GHz).
-4. Modalità di sicurezza: Open, WPA2-Personal, WPA3-Personal.
-5. Condivisione Internet (NAT) e interfaccia upstream.
-6. Abilitazione Captive Portal e selezione template grafico.
-7. Salvataggio opzionale come Preset riutilizzabile.
-8. Avvio immediato dell'Access Point.
+The `wizard` command guides you step by step through configuration:
+1. Numeric selection of the Wi-Fi interface.
+2. Wi-Fi network name (SSID).
+3. Radio channel selection (2.4 GHz / 5 GHz).
+4. Security mode: Open, WPA2-Personal, WPA3-Personal.
+5. Internet sharing (NAT) and upstream interface.
+6. Captive portal enablement and guest portal template selection.
+7. Optional save as a reusable preset.
+8. Immediate start of the Access Point.
 
 ---
 
-### Template Captive Portal Inclusi (`portal/presets/`)
+### Included Captive Portal Templates (`portal/presets/`)
 
-AP-Generator include 13 template pronti:
+AP-Generator includes 13 ready-to-use templates:
 * `Google_Modern`, `Better_Google_Mobile`
 * `Amazon`, `Apple`, `Microsoft`, `Facebook`, `Twitter`, `Twitch`
 * `Starlink`, `Starbucks` (before/after)
 * `TP-LINK-Var1`, `TP-LINK-Var2-OLD`
 
-Anteprima locale:
+Local preview:
 ```bash
 ./ap-generator portal test Starlink --port 8080
 ```
 
 ---
 
-## Roadmap di Sviluppo
+## Development Roadmap
 
 ```text
-[==================================>   ] 85% Completato
+[==================================>   ] 85% Complete
 ```
 
-### ✅ Completato
-- [x] Motore Core C++17 modulare e sistema di Logging
-- [x] Shell Interattiva (REPL) con prompt dedicato e comandi integrati
-- [x] Procedura guidata interattiva passo-passo (`wizard`)
-- [x] Supporto Multi-lingua completo (Italiano / Inglese)
-- [x] Ispezione e discovery interfacce Wi-Fi (canali, bande, WPA3, concurrency)
-- [x] Generazione dinamica `hostapd.conf` (Open, WPA2, WPA3 SAE, Mixed)
-- [x] Orchestrazione DHCP/DNS (`dnsmasq`) con RFC 8908 DHCP option 114
-- [x] Routing NAT Masquerade (`iptables` / `nftables`)
-- [x] Captive Portal HTTP nativo non-bloccante con 13 template inclusi
-- [x] Monitoraggio stazioni (`iw station dump` per segnale RSSI e traffico RX/TX)
-- [x] Client kick (`hostapd_cli deauthenticate`) e MAC Blacklist
-- [x] Preset Manager JSON (salva, carica, elimina, valida, esporta)
-- [x] Suite di test di integrazione automatizzata (6 test)
+### ✅ Completed
+- [x] Modular C++17 core engine and Logging system
+- [x] Interactive REPL shell with dedicated prompt and built-in commands
+- [x] Interactive step-by-step guided setup (`wizard`)
+- [x] Full multi-language support (Italian / English)
+- [x] Wi-Fi interface discovery and inspection (channels, bands, WPA3, concurrency)
+- [x] Dynamic `hostapd.conf` generation (Open, WPA2, WPA3 SAE, Mixed)
+- [x] DHCP/DNS orchestration (`dnsmasq`) with RFC 8908 DHCP option 114
+- [x] NAT masquerade routing (`iptables` / `nftables`)
+- [x] Native non-blocking HTTP captive portal with 13 included templates
+- [x] Station monitoring (`iw station dump` for RSSI and RX/TX traffic)
+- [x] Client kick (`hostapd_cli deauthenticate`) and MAC blacklist
+- [x] JSON preset manager (save, load, delete, validate, export)
+- [x] Automated integration test suite (6 tests)
 
-### 🔜 Prossimi Passi
-- [ ] Modalità Demone Watchdog / Process Supervisor (auto-ripristino in caso di crash)
-- [ ] Creazione Unit File Systemd (`systemctl start ap-generator@preset`)
-- [ ] Interfaccia Grafica Utente (GUI con Qt o Web Dashboard locale)
-- [ ] Implementazione Backend Windows (`WindowsWifiBackend` con Native Wifi API)
+### 🔜 Next Steps
+- [ ] Daemon Watchdog / Process Supervisor mode (auto-recovery in case of crashes)
+- [ ] Systemd Unit File creation (`systemctl start ap-generator@preset`)
+- [ ] Graphical User Interface (GUI with Qt or a local Web Dashboard)
+- [ ] Windows backend implementation (`WindowsWifiBackend` with Native Wifi API)
 
 ---
 
-## Licenza
+## License
 
-Questo progetto è distribuito sotto licenza **MIT**. Consulta il file `LICENSE` per ulteriori dettagli.
+This project is distributed under the **MIT** license. See the `LICENSE` file for more details.
